@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>聊天室</title>
+</head>
+<body>
+  <h2>聊天室</h2>
+  <div id="log" style="border:1px solid #ccc; height:200px; overflow-y:scroll; padding:5px;"></div>
+  <input id="msg" placeholder="输入消息..." />
+  <button id="sendBtn" onclick="send()" disabled>发送</button>
+
+  <script>
+    const username = prompt("请输入你的昵称");
+    const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
+
+    socket.onopen = () => {
+      log("✅ 已连接聊天室");
+      document.getElementById("sendBtn").disabled = false;
+    };
+
+    socket.onmessage = (e) => log(e.data);
+
+    socket.onerror = () => log("❌ 连接出错");
+
+    function send() {
+      const msg = document.getElementById("msg").value;
+      if (msg.trim()) {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ username, msg }));
+          document.getElementById("msg").value = "";
+        } else {
+          log("⚠️ 连接尚未建立");
+        }
+      }
+    }
+
+    function log(msg) {
+      const logDiv = document.getElementById("log");
+      logDiv.innerHTML += `<div>${msg}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>

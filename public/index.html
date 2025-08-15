@@ -1,45 +1,224 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="UTF-8" />
-  <title>聊天室</title>
+<meta charset="UTF-8" />
+<title>聊天室</title>
+<style>
+  :root {
+    --sunset-yellow: #FFD166;
+    --light-red: #EF476F;
+    --warm-orange: #F78C6B;
+    --cool-teal: #06D6A0;
+    --light-purple: #9B5DE5;
+    --light-pink: #FEC5E5;
+  }
+
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(
+      135deg, 
+      var(--sunset-yellow) 0%, 
+      var(--light-red) 20%, 
+      var(--warm-orange) 40%, 
+      var(--cool-teal) 60%, 
+      var(--light-purple) 80%, 
+      var(--light-pink) 100%
+    );
+  }
+
+  /* 顶部栏 */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    color: white;
+    font-weight: bold;
+  }
+
+  .top-bar .left, .top-bar .right {
+    cursor: pointer;
+    font-size: 20px;
+    padding: 0 10px;
+  }
+
+  .top-bar .center {
+    flex: 1;
+    text-align: center;
+  }
+
+  /* 聊天区域 */
+  #log {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  .msg {
+    max-width: 70%;
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.8);
+    word-wrap: break-word;
+    clear: both;
+  }
+
+  .msg.me {
+    background: rgba(255,255,255,0.9);
+    float: right;
+    text-align: right;
+  }
+
+  .msg.other {
+    background: rgba(255,255,255,0.7);
+    float: left;
+    text-align: left;
+  }
+
+  /* 底部输入框 */
+  .bottom-bar {
+    display: flex;
+    padding: 10px;
+    background: rgba(255,255,255,0.3);
+    backdrop-filter: blur(5px);
+    align-items: center;
+  }
+
+  #msg {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 20px;
+    outline: none;
+    margin: 0 5px;
+  }
+
+  button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 20px;
+    background: #fff;
+    cursor: pointer;
+  }
+
+  .emoji-btn {
+    font-size: 20px;
+    background: transparent;
+  }
+
+  /* 表情选择框 */
+  #emoji-picker {
+    display: none;
+    position: absolute;
+    bottom: 60px;
+    left: 10px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 10px;
+    padding: 10px;
+    max-width: 200px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  #emoji-picker span {
+    font-size: 20px;
+    margin: 5px;
+    cursor: pointer;
+  }
+</style>
 </head>
 <body>
-  <h2>聊天室</h2>
-  <div id="log" style="border:1px solid #ccc; height:200px; overflow-y:scroll; padding:5px;"></div>
+
+<!-- 顶部栏 -->
+<div class="top-bar">
+  <div class="left" onclick="goHome()">🏠</div>
+  <div class="center" id="status">对方昵称（在线）</div>
+  <div class="right" onclick="startCall()">📞</div>
+</div>
+
+<!-- 聊天记录 -->
+<div id="log"></div>
+
+<!-- 表情选择 -->
+<div id="emoji-picker"></div>
+
+<!-- 底部栏 -->
+<div class="bottom-bar">
+  <button class="emoji-btn" onclick="toggleEmoji()">😊</button>
   <input id="msg" placeholder="输入消息..." />
   <button id="sendBtn" onclick="send()" disabled>发送</button>
+</div>
 
-  <script>
-    const username = prompt("请输入你的昵称");
-    const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
+<script>
+  const username = prompt("请输入你的昵称");
+  const socket = new WebSocket(location.origin.replace(/^http/, 'ws'));
 
-    socket.onopen = () => {
-      log("✅ 已连接聊天室");
-      document.getElementById("sendBtn").disabled = false;
+  const emojiList = ["😀","😁","😂","🤣","😊","😍","😘","😎","😭","😡","👍","🙏","🔥","🎉","❤️","💔"];
+  const emojiPicker = document.getElementById("emoji-picker");
+  emojiList.forEach(e => {
+    const span = document.createElement("span");
+    span.textContent = e;
+    span.onclick = () => {
+      document.getElementById("msg").value += e;
+      emojiPicker.style.display = "none";
     };
+    emojiPicker.appendChild(span);
+  });
 
-    socket.onmessage = (e) => log(e.data);
+  function toggleEmoji() {
+    emojiPicker.style.display = emojiPicker.style.display === "flex" ? "none" : "flex";
+    emojiPicker.style.flexWrap = "wrap";
+  }
 
-    socket.onerror = () => log("❌ 连接出错");
+  socket.onopen = () => {
+    log("✅ 已连接聊天室", "system");
+    document.getElementById("sendBtn").disabled = false;
+  };
 
-    function send() {
-      const msg = document.getElementById("msg").value;
-      if (msg.trim()) {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ username, msg }));
-          document.getElementById("msg").value = "";
-        } else {
-          log("⚠️ 连接尚未建立");
-        }
+  socket.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    log(`${data.username}: ${data.msg}`, data.username === username ? "me" : "other");
+  };
+
+  socket.onerror = () => log("❌ 连接出错", "system");
+
+  function send() {
+    const msg = document.getElementById("msg").value;
+    if (msg.trim()) {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ username, msg }));
+        document.getElementById("msg").value = "";
+      } else {
+        log("⚠️ 连接尚未建立", "system");
       }
     }
+  }
 
-    function log(msg) {
-      const logDiv = document.getElementById("log");
-      logDiv.innerHTML += `<div>${msg}</div>`;
-      logDiv.scrollTop = logDiv.scrollHeight;
-    }
-  </script>
+  function log(message, type) {
+    const logDiv = document.getElementById("log");
+    const div = document.createElement("div");
+    div.className = "msg " + (type || "other");
+    div.innerHTML = message;
+    logDiv.appendChild(div);
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  function goHome() {
+    window.location.href = "/"; // 返回主页
+  }
+
+  function startCall() {
+    alert("📞 语音通话功能正在开发中...");
+    // 可集成 WebRTC 或其他语音通话 API
+  }
+</script>
+
 </body>
 </html>

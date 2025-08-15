@@ -1,1 +1,536 @@
-
+{
+  "emojis": [
+    {
+      "char": "😀",
+      "code": [
+        "U+1F600"
+      ],
+      "name": "grinning face"
+    },
+    {
+      "char": "😁",
+      "code": [
+        "U+1F601"
+      ],
+      "name": "beaming face with smiling eyes"
+    },
+    {
+      "char": "😂",
+      "code": [
+        "U+1F602"
+      ],
+      "name": "face with tears of joy"
+    },
+    {
+      "char": "🤣",
+      "code": [
+        "U+1F923"
+      ],
+      "name": "rolling on the floor laughing"
+    },
+    {
+      "char": "😃",
+      "code": [
+        "U+1F603"
+      ],
+      "name": "grinning face with big eyes"
+    },
+    {
+      "char": "😄",
+      "code": [
+        "U+1F604"
+      ],
+      "name": "grinning face with smiling eyes"
+    },
+    {
+      "char": "😅",
+      "code": [
+        "U+1F605"
+      ],
+      "name": "grinning face with sweat"
+    },
+    {
+      "char": "😆",
+      "code": [
+        "U+1F606"
+      ],
+      "name": "grinning squinting face"
+    },
+    {
+      "char": "😉",
+      "code": [
+        "U+1F609"
+      ],
+      "name": "winking face"
+    },
+    {
+      "char": "😊",
+      "code": [
+        "U+1F60A"
+      ],
+      "name": "smiling face with smiling eyes"
+    },
+    {
+      "char": "😋",
+      "code": [
+        "U+1F60B"
+      ],
+      "name": "face savoring food"
+    },
+    {
+      "char": "😎",
+      "code": [
+        "U+1F60E"
+      ],
+      "name": "smiling face with sunglasses"
+    },
+    {
+      "char": "😍",
+      "code": [
+        "U+1F60D"
+      ],
+      "name": "smiling face with heart-eyes"
+    },
+    {
+      "char": "😘",
+      "code": [
+        "U+1F618"
+      ],
+      "name": "face blowing a kiss"
+    },
+    {
+      "char": "🥰",
+      "code": [
+        "U+1F970"
+      ],
+      "name": "smiling face with hearts"
+    },
+    {
+      "char": "😗",
+      "code": [
+        "U+1F617"
+      ],
+      "name": "kissing face"
+    },
+    {
+      "char": "😙",
+      "code": [
+        "U+1F619"
+      ],
+      "name": "kissing face with smiling eyes"
+    },
+    {
+      "char": "😚",
+      "code": [
+        "U+1F61A"
+      ],
+      "name": "kissing face with closed eyes"
+    },
+    {
+      "char": "🙂",
+      "code": [
+        "U+1F642"
+      ],
+      "name": "slightly smiling face"
+    },
+    {
+      "char": "🤗",
+      "code": [
+        "U+1F917"
+      ],
+      "name": "hugging face"
+    },
+    {
+      "char": "🤩",
+      "code": [
+        "U+1F929"
+      ],
+      "name": "star-struck"
+    },
+    {
+      "char": "🤔",
+      "code": [
+        "U+1F914"
+      ],
+      "name": "thinking face"
+    },
+    {
+      "char": "🤨",
+      "code": [
+        "U+1F928"
+      ],
+      "name": "face with raised eyebrow"
+    },
+    {
+      "char": "😐",
+      "code": [
+        "U+1F610"
+      ],
+      "name": "neutral face"
+    },
+    {
+      "char": "😑",
+      "code": [
+        "U+1F611"
+      ],
+      "name": "expressionless face"
+    },
+    {
+      "char": "😶",
+      "code": [
+        "U+1F636"
+      ],
+      "name": "face without mouth"
+    },
+    {
+      "char": "🙄",
+      "code": [
+        "U+1F644"
+      ],
+      "name": "face with rolling eyes"
+    },
+    {
+      "char": "😏",
+      "code": [
+        "U+1F60F"
+      ],
+      "name": "smirking face"
+    },
+    {
+      "char": "😣",
+      "code": [
+        "U+1F623"
+      ],
+      "name": "persevering face"
+    },
+    {
+      "char": "😥",
+      "code": [
+        "U+1F625"
+      ],
+      "name": "sad but relieved face"
+    },
+    {
+      "char": "😮",
+      "code": [
+        "U+1F62E"
+      ],
+      "name": "face with open mouth"
+    },
+    {
+      "char": "🤐",
+      "code": [
+        "U+1F910"
+      ],
+      "name": "zipper-mouth face"
+    },
+    {
+      "char": "😯",
+      "code": [
+        "U+1F62F"
+      ],
+      "name": "hushed face"
+    },
+    {
+      "char": "😪",
+      "code": [
+        "U+1F62A"
+      ],
+      "name": "sleepy face"
+    },
+    {
+      "char": "😫",
+      "code": [
+        "U+1F62B"
+      ],
+      "name": "tired face"
+    },
+    {
+      "char": "🥱",
+      "code": [
+        "U+1F971"
+      ],
+      "name": "yawning face"
+    },
+    {
+      "char": "😴",
+      "code": [
+        "U+1F634"
+      ],
+      "name": "sleeping face"
+    },
+    {
+      "char": "😌",
+      "code": [
+        "U+1F60C"
+      ],
+      "name": "relieved face"
+    },
+    {
+      "char": "😛",
+      "code": [
+        "U+1F61B"
+      ],
+      "name": "face with tongue"
+    },
+    {
+      "char": "😜",
+      "code": [
+        "U+1F61C"
+      ],
+      "name": "winking face with tongue"
+    },
+    {
+      "char": "🤪",
+      "code": [
+        "U+1F92A"
+      ],
+      "name": "zany face"
+    },
+    {
+      "char": "😝",
+      "code": [
+        "U+1F61D"
+      ],
+      "name": "squinting face with tongue"
+    },
+    {
+      "char": "🤤",
+      "code": [
+        "U+1F924"
+      ],
+      "name": "drooling face"
+    },
+    {
+      "char": "😒",
+      "code": [
+        "U+1F612"
+      ],
+      "name": "unamused face"
+    },
+    {
+      "char": "😓",
+      "code": [
+        "U+1F613"
+      ],
+      "name": "downcast face with sweat"
+    },
+    {
+      "char": "😔",
+      "code": [
+        "U+1F614"
+      ],
+      "name": "pensive face"
+    },
+    {
+      "char": "😕",
+      "code": [
+        "U+1F615"
+      ],
+      "name": "confused face"
+    },
+    {
+      "char": "🙃",
+      "code": [
+        "U+1F643"
+      ],
+      "name": "upside-down face"
+    },
+    {
+      "char": "🤑",
+      "code": [
+        "U+1F911"
+      ],
+      "name": "money-mouth face"
+    },
+    {
+      "char": "😲",
+      "code": [
+        "U+1F632"
+      ],
+      "name": "astonished face"
+    },
+    {
+      "char": "☹",
+      "code": [
+        "U+2639"
+      ],
+      "name": "frowning face"
+    },
+    {
+      "char": "🙁",
+      "code": [
+        "U+1F641"
+      ],
+      "name": "slightly frowning face"
+    },
+    {
+      "char": "😖",
+      "code": [
+        "U+1F616"
+      ],
+      "name": "confounded face"
+    },
+    {
+      "char": "😞",
+      "code": [
+        "U+1F61E"
+      ],
+      "name": "disappointed face"
+    },
+    {
+      "char": "😟",
+      "code": [
+        "U+1F61F"
+      ],
+      "name": "worried face"
+    },
+    {
+      "char": "😤",
+      "code": [
+        "U+1F624"
+      ],
+      "name": "face with steam from nose"
+    },
+    {
+      "char": "😢",
+      "code": [
+        "U+1F622"
+      ],
+      "name": "crying face"
+    },
+    {
+      "char": "😭",
+      "code": [
+        "U+1F62D"
+      ],
+      "name": "loudly crying face"
+    },
+    {
+      "char": "😦",
+      "code": [
+        "U+1F626"
+      ],
+      "name": "frowning face with open mouth"
+    },
+    {
+      "char": "😧",
+      "code": [
+        "U+1F627"
+      ],
+      "name": "anguished face"
+    },
+    {
+      "char": "😨",
+      "code": [
+        "U+1F628"
+      ],
+      "name": "fearful face"
+    },
+    {
+      "char": "😩",
+      "code": [
+        "U+1F629"
+      ],
+      "name": "weary face"
+    },
+    {
+      "char": "🤯",
+      "code": [
+        "U+1F92F"
+      ],
+      "name": "exploding head"
+    },
+    {
+      "char": "😬",
+      "code": [
+        "U+1F62C"
+      ],
+      "name": "grimacing face"
+    },
+    {
+      "char": "😰",
+      "code": [
+        "U+1F630"
+      ],
+      "name": "anxious face with sweat"
+    },
+    {
+      "char": "😱",
+      "code": [
+        "U+1F631"
+      ],
+      "name": "face screaming in fear"
+    },
+    {
+      "char": "🥵",
+      "code": [
+        "U+1F975"
+      ],
+      "name": "hot face"
+    },
+    {
+      "char": "🥶",
+      "code": [
+        "U+1F976"
+      ],
+      "name": "cold face"
+    },
+    {
+      "char": "😳",
+      "code": [
+        "U+1F633"
+      ],
+      "name": "flushed face"
+    },
+    {
+      "char": "🤪",
+      "code": [
+        "U+1F92A"
+      ],
+      "name": "zany face"
+    },
+    {
+      "char": "🤢",
+      "code": [
+        "U+1F922"
+      ],
+      "name": "nauseated face"
+    },
+    {
+      "char": "🤮",
+      "code": [
+        "U+1F92E"
+      ],
+      "name": "face vomiting"
+    },
+    {
+      "char": "🤧",
+      "code": [
+        "U+1F927"
+      ],
+      "name": "sneezing face"
+    },
+    {
+      "char": "😷",
+      "code": [
+        "U+1F637"
+      ],
+      "name": "face with medical mask"
+    },
+    {
+      "char": "🤒",
+      "code": [
+        "U+1F912"
+      ],
+      "name": "face with thermometer"
+    },
+    {
+      "char": "🤕",
+      "code": [
+        "U+1F915"
+      ],
+      "name": "face with head-bandage"
+    }
+  ]
+}

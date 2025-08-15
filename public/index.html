@@ -64,45 +64,41 @@
     background: rgba(255,255,255,0.8);
     word-wrap: break-word;
   }
-  .me {
-    background: rgba(255,255,255,0.9);
-    align-self: flex-end;
-  }
-  .other {
-    background: rgba(255,255,255,0.6);
-    align-self: flex-start;
-  }
-  .system {
-    background: rgba(200,200,200,0.7);
-    text-align: center;
-    color: #000;
-  }
+  .me { background: rgba(255,255,255,0.9); align-self: flex-end; }
+  .other { background: rgba(255,255,255,0.6); align-self: flex-start; }
+  .system { background: rgba(200,200,200,0.7); text-align: center; color: #000; }
   .input-area {
     display: flex;
     padding: 10px;
     background: rgba(255,255,255,0.2);
     backdrop-filter: blur(5px);
+    position: relative;
   }
-  #msg {
-    flex: 1;
-    padding: 8px;
-    border: none;
-    border-radius: 20px;
-    outline: none;
-  }
-  #sendBtn, #emojiBtn {
-    margin-left: 5px;
-    padding: 8px 12px;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
+  #msg { flex: 1; padding: 8px; border: none; border-radius: 20px; outline: none; }
+  #sendBtn, #emojiBtn { margin-left: 5px; padding: 8px 12px; border: none; border-radius: 20px; cursor: pointer; background: rgba(255,255,255,0.9); }
+
+  /* 表情面板 */
+  #emojiPanel {
+    position: absolute;
+    bottom: 50px;
+    right: 10px;
     background: rgba(255,255,255,0.9);
+    border-radius: 8px;
+    padding: 5px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  #emojiPanel button {
+    font-size: 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
   }
 </style>
 </head>
 <body>
 
-<!-- 顶部栏 -->
 <div class="top-bar">
   <button onclick="window.location.href='/'">🏠</button>
   <div class="top-center">
@@ -112,13 +108,11 @@
   <button onclick="startCall()">📞</button>
 </div>
 
-<!-- 消息记录 -->
 <div id="log"></div>
 
-<!-- 输入框 -->
 <div class="input-area">
   <input id="msg" placeholder="输入消息..." />
-  <button id="emojiBtn" onclick="insertEmoji()">😊</button>
+  <button id="emojiBtn" onclick="toggleEmojiPanel()">😊</button>
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
 
@@ -133,54 +127,80 @@ const partnerName = document.getElementById("partnerName");
 const logDiv = document.getElementById("log");
 const socket = new WebSocket("wss://blackbox-chat.onrender.com");
 
-let partnerInfo = { username: "未知用户", avatar: "https://via.placeholder.com/32?text=?" };
+let partnerInfo = { username: "未知用户", avatar: "public/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
+let myRoom = null; // 当前房间
+let emojis = [];
+
+// -------------------- 表情包 --------------------
+fetch('other/emojis.json')
+  .then(res => res.json())
+  .then(data => emojis = data);
+
+function toggleEmojiPanel(){
+  let panel = document.getElementById('emojiPanel');
+  if(panel) { panel.remove(); return; }
+
+  panel = document.createElement('div');
+  panel.id = 'emojiPanel';
+  emojis.forEach(e=>{
+    const btn = document.createElement('button');
+    btn.innerText = e.symbol;
+    btn.onclick = ()=> insertEmoji(e.symbol);
+    panel.appendChild(btn);
+  });
+  document.querySelector('.input-area').appendChild(panel);
+}
+
+function insertEmoji(symbol){
+  const msgInput = document.getElementById("msg");
+  msgInput.value += symbol;
+  msgInput.focus();
+}
 
 // -------------------- 聊天功能 --------------------
 socket.onopen = () => {
   log("✅ 已连接聊天室", "system");
   document.getElementById("sendBtn").disabled = false;
-  socket.send(JSON.stringify({ system: true, join: true, username, avatar: "" }));
+  socket.send(JSON.stringify({ system: true, join: true, username, avatar: "", requestRoom: true }));
 };
 
 socket.onmessage = async (e) => {
   try {
     const data = JSON.parse(e.data);
 
-    // 系统消息
-    if(data.system) {
+    if(data.system){
       log(data.msg, "system");
-      if(data.join && data.username !== username) {
+      if(data.join && data.username !== username){
         partnerInfo.username = data.username;
         partnerInfo.avatar = data.avatar || partnerInfo.avatar;
         partnerName.textContent = partnerInfo.username;
         partnerAvatar.src = partnerInfo.avatar;
+        partnerInfo.online = true;
       }
-    } 
-    // WebRTC信令
+      if(data.room) myRoom = data.room; // 分配房间
+    } else if(data.username && data.msg && data.room === myRoom){
+      const type = data.username === username ? "me" : "other";
+      log(`${data.username}: ${data.msg}`, type);
+
+      // 更新对方信息
+      if(data.username !== username){
+        partnerInfo.username = data.username;
+        partnerName.textContent = partnerInfo.username;
+        partnerAvatar.src = data.avatar || partnerAvatar.src;
+        partnerInfo.online = true;
+      }
+    }
+    // WebRTC 信令
     else if(data.type === 'offer' && !isCalling){
       window.incomingOffer = data.offer;
       partnerInfo.username = data.username;
       partnerName.textContent = partnerInfo.username;
       partnerAvatar.src = data.avatar || partnerAvatar.src;
       startCall(true); // 被叫
-    } 
-    else if(data.type === 'answer'){
+    } else if(data.type === 'answer'){
       await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-    } 
-    else if(data.type === 'ice' && data.candidate){
-      if(peerConnection){
-        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-      }
-    } 
-    // 普通聊天消息
-    else {
-      const type = data.username === username ? "me" : "other";
-      log(`${data.username}: ${data.msg}`, type);
-      if(data.username !== username){
-        partnerInfo.username = data.username;
-        partnerName.textContent = partnerInfo.username;
-        partnerAvatar.src = data.avatar || partnerAvatar.src;
-      }
+    } else if(data.type === 'ice' && data.candidate){
+      if(peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
     }
   } catch {
     log(e.data, "other");
@@ -193,12 +213,12 @@ function send() {
   const msgInput = document.getElementById("msg");
   const msg = msgInput.value.trim();
   if (!msg) return;
-  if(socket.readyState === WebSocket.OPEN){
-    const data = { username, msg, avatar: "" };
+  if(socket.readyState === WebSocket.OPEN && myRoom){
+    const data = { username, msg, avatar: "", room: myRoom };
     socket.send(JSON.stringify(data));
     msgInput.value = "";
   } else {
-    log("⚠️ 连接尚未建立", "system");
+    log("⚠️ 连接尚未建立或没有分配房间", "system");
   }
 }
 
@@ -210,23 +230,15 @@ function log(message, type="other"){
   logDiv.scrollTop = logDiv.scrollHeight;
 }
 
-function insertEmoji(){
-  const msgInput = document.getElementById("msg");
-  msgInput.value += "😊";
-  msgInput.focus();
-}
-
-// -------------------- WebRTC语音通话功能 --------------------
-let localStream;
-let peerConnection;
-let isCalling = false;
+// -------------------- WebRTC语音通话 --------------------
+let localStream, peerConnection, isCalling = false;
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 function startCall(isIncoming=false){
   if(isCalling) return;
+  if(!partnerInfo.online){ alert("对方不在线，无法通话"); return; }
   isCalling = true;
 
-  // 创建通话界面
   const callOverlay = document.createElement('div');
   callOverlay.id = 'callOverlay';
   Object.assign(callOverlay.style,{
@@ -243,7 +255,7 @@ function startCall(isIncoming=false){
   callOverlay.appendChild(status);
 
   const audio = document.createElement('audio');
-  audio.src = 'https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg';
+  audio.src = 'sound/DaDaDum - The Soundlings.mp3';
   audio.loop = true;
   audio.autoplay = true;
   callOverlay.appendChild(audio);
@@ -260,13 +272,13 @@ function startCall(isIncoming=false){
 
   const btnContainer = document.createElement('div');
   btnContainer.style.display = 'flex';
+  btnContainer.style.gap = '20px';
   if(isIncoming) btnContainer.appendChild(acceptBtn);
   btnContainer.appendChild(hangupBtn);
   callOverlay.appendChild(btnContainer);
 
   document.body.appendChild(callOverlay);
 
-  // 获取麦克风
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     localStream = stream;
     peerConnection = new RTCPeerConnection(config);
@@ -284,13 +296,12 @@ function startCall(isIncoming=false){
     };
 
     peerConnection.onicecandidate = e => {
-      if(e.candidate) {
+      if(e.candidate){
         socket.send(JSON.stringify({ type:'ice', candidate:e.candidate, to: partnerInfo.username }));
       }
     };
 
     if(!isIncoming){
-      // 主叫创建offer
       peerConnection.createOffer().then(offer => {
         peerConnection.setLocalDescription(offer);
         socket.send(JSON.stringify({ type:'offer', offer, to: partnerInfo.username, username, avatar:'' }));
@@ -299,7 +310,6 @@ function startCall(isIncoming=false){
   });
 }
 
-// 接听
 function acceptCall(){
   const callStatus = document.getElementById('callStatus');
   callStatus.innerText = '已接听，正在建立通话...';
@@ -313,12 +323,9 @@ function acceptCall(){
   });
 }
 
-// 挂断
 function endCall(isCaller=false){
   if(peerConnection) peerConnection.close();
-  if(localStream){
-    localStream.getTracks().forEach(track=>track.stop());
-  }
+  if(localStream) localStream.getTracks().forEach(track=>track.stop());
   const overlay = document.getElementById('callOverlay');
   if(overlay) overlay.remove();
   isCalling = false;

@@ -127,8 +127,8 @@ const partnerName = document.getElementById("partnerName");
 const logDiv = document.getElementById("log");
 const socket = new WebSocket("wss://blackbox-chat.onrender.com");
 
-let partnerInfo = { username: "未知用户", avatar: "public/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
-let myRoom = null; // 当前房间
+let myRoom = null;
+let partnerInfo = { username: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
 let emojis = [];
 
 // -------------------- 表情包 --------------------
@@ -168,29 +168,38 @@ socket.onmessage = async (e) => {
   try {
     const data = JSON.parse(e.data);
 
-    if(data.system){
+    if (data.system) {
       log(data.msg, "system");
-      if(data.join && data.username !== username){
+
+      if (data.room) myRoom = data.room;
+
+      if (data.join && data.username !== username) {
         partnerInfo.username = data.username;
         partnerInfo.avatar = data.avatar || partnerInfo.avatar;
+        partnerInfo.online = true;
         partnerName.textContent = partnerInfo.username;
         partnerAvatar.src = partnerInfo.avatar;
-        partnerInfo.online = true;
+        log(`${partnerInfo.username} 已加入房间`, "system");
       }
-      if(data.room) myRoom = data.room; // 分配房间
-    } else if(data.username && data.msg && data.room === myRoom){
-      const type = data.username === username ? "me" : "other";
-      log(`${data.username}: ${data.msg}`, type);
 
-      // 更新对方信息
-      if(data.username !== username){
+      if (data.join && data.username === username) {
+        log("等待其他人加入...", "system");
+      }
+    } 
+    else if (data.username && data.msg && data.room === myRoom) {
+      const type = data.username === username ? "me" : "other";
+      const name = data.username || "未知用户";
+      log(`${name}: ${data.msg}`, type);
+
+      if (data.username !== username) {
         partnerInfo.username = data.username;
-        partnerName.textContent = partnerInfo.username;
-        partnerAvatar.src = data.avatar || partnerAvatar.src;
+        partnerInfo.avatar = data.avatar || partnerAvatar.src;
         partnerInfo.online = true;
+        partnerName.textContent = partnerInfo.username;
+        partnerAvatar.src = partnerInfo.avatar;
       }
     }
-    // WebRTC 信令
+
     else if(data.type === 'offer' && !isCalling){
       window.incomingOffer = data.offer;
       partnerInfo.username = data.username;
@@ -213,12 +222,15 @@ function send() {
   const msgInput = document.getElementById("msg");
   const msg = msgInput.value.trim();
   if (!msg) return;
-  if(socket.readyState === WebSocket.OPEN && myRoom){
+
+  if(socket.readyState === WebSocket.OPEN && myRoom && partnerInfo.online){
     const data = { username, msg, avatar: "", room: myRoom };
     socket.send(JSON.stringify(data));
     msgInput.value = "";
+  } else if(!partnerInfo.online){
+    log("⚠️ 当前没有在线用户，等待其他人加入...", "system");
   } else {
-    log("⚠️ 连接尚未建立或没有分配房间", "system");
+    log("⚠️ 连接尚未建立或房间未分配", "system");
   }
 }
 

@@ -20,7 +20,6 @@
     display: flex;
     flex-direction: column;
   }
-  /* 顶部栏 */
   .top-bar {
     display: flex;
     align-items: center;
@@ -31,6 +30,17 @@
     font-weight: bold;
     backdrop-filter: blur(5px);
   }
+  .top-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .top-center img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
   .top-bar button {
     background: none;
     border: none;
@@ -38,11 +48,12 @@
     cursor: pointer;
     color: #fff;
   }
-  /* 消息区域 */
   #log {
     flex: 1;
     padding: 10px;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
   }
   .msg {
     max-width: 70%;
@@ -61,7 +72,11 @@
     background: rgba(255,255,255,0.6);
     align-self: flex-start;
   }
-  /* 输入区 */
+  .system {
+    background: rgba(200,200,200,0.7);
+    text-align: center;
+    color: #000;
+  }
   .input-area {
     display: flex;
     padding: 10px;
@@ -90,12 +105,15 @@
 <!-- 顶部栏 -->
 <div class="top-bar">
   <button onclick="window.location.href='/'">🏠</button>
-  <div id="status">对方：离线</div>
+  <div class="top-center">
+    <img id="partnerAvatar" src="https://via.placeholder.com/32?text=?" alt="对方头像">
+    <span id="partnerName">未知用户</span>
+  </div>
   <button onclick="startCall()">📞</button>
 </div>
 
 <!-- 消息记录 -->
-<div id="log" style="display:flex;flex-direction:column;"></div>
+<div id="log"></div>
 
 <!-- 输入框 -->
 <div class="input-area">
@@ -105,60 +123,206 @@
 </div>
 
 <script>
-  const username = prompt("请输入你的昵称");
-  const statusDiv = document.getElementById("status");
-  const socket = new WebSocket("wss://blackbox-chat.onrender.com");
+let username = prompt("请输入你的昵称");
+while(!username || username.trim() === "") {
+  username = prompt("昵称不能为空，请输入你的昵称");
+}
 
-  socket.onopen = () => {
-    log("✅ 已连接聊天室", "system");
-    document.getElementById("sendBtn").disabled = false;
-  };
+const partnerAvatar = document.getElementById("partnerAvatar");
+const partnerName = document.getElementById("partnerName");
+const logDiv = document.getElementById("log");
+const socket = new WebSocket("wss://blackbox-chat.onrender.com");
 
-  socket.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data); // 服务器如果发 JSON
-      log(`${data.username}: ${data.msg}`, data.username === username ? "me" : "other");
-    } catch {
-      // 如果是纯文本
-      log(e.data, "other");
-    }
-  };
+let partnerInfo = { username: "未知用户", avatar: "https://via.placeholder.com/32?text=?" };
 
-  socket.onerror = () => log("❌ 连接出错", "system");
+// -------------------- 聊天功能 --------------------
+socket.onopen = () => {
+  log("✅ 已连接聊天室", "system");
+  document.getElementById("sendBtn").disabled = false;
+  socket.send(JSON.stringify({ system: true, join: true, username, avatar: "" }));
+};
 
-  function send() {
-    const msgInput = document.getElementById("msg");
-    const msg = msgInput.value;
-    if (msg.trim()) {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ username, msg }));
-        log(`${username}: ${msg}`, "me");
-        msgInput.value = "";
-      } else {
-        log("⚠️ 连接尚未建立", "system");
+socket.onmessage = async (e) => {
+  try {
+    const data = JSON.parse(e.data);
+
+    // 系统消息
+    if(data.system) {
+      log(data.msg, "system");
+      if(data.join && data.username !== username) {
+        partnerInfo.username = data.username;
+        partnerInfo.avatar = data.avatar || partnerInfo.avatar;
+        partnerName.textContent = partnerInfo.username;
+        partnerAvatar.src = partnerInfo.avatar;
+      }
+    } 
+    // WebRTC信令
+    else if(data.type === 'offer' && !isCalling){
+      window.incomingOffer = data.offer;
+      partnerInfo.username = data.username;
+      partnerName.textContent = partnerInfo.username;
+      partnerAvatar.src = data.avatar || partnerAvatar.src;
+      startCall(true); // 被叫
+    } 
+    else if(data.type === 'answer'){
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+    } 
+    else if(data.type === 'ice' && data.candidate){
+      if(peerConnection){
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+    } 
+    // 普通聊天消息
+    else {
+      const type = data.username === username ? "me" : "other";
+      log(`${data.username}: ${data.msg}`, type);
+      if(data.username !== username){
+        partnerInfo.username = data.username;
+        partnerName.textContent = partnerInfo.username;
+        partnerAvatar.src = data.avatar || partnerAvatar.src;
       }
     }
+  } catch {
+    log(e.data, "other");
   }
+};
 
-  function log(message, type = "other") {
-    const logDiv = document.getElementById("log");
-    const msgDiv = document.createElement("div");
-    msgDiv.className = `msg ${type}`;
-    msgDiv.textContent = message;
-    logDiv.appendChild(msgDiv);
-    logDiv.scrollTop = logDiv.scrollHeight;
-  }
+socket.onerror = () => log("❌ 连接出错", "system");
 
-  function insertEmoji() {
-    const msgInput = document.getElementById("msg");
-    msgInput.value += "😊";
-    msgInput.focus();
+function send() {
+  const msgInput = document.getElementById("msg");
+  const msg = msgInput.value.trim();
+  if (!msg) return;
+  if(socket.readyState === WebSocket.OPEN){
+    const data = { username, msg, avatar: "" };
+    socket.send(JSON.stringify(data));
+    msgInput.value = "";
+  } else {
+    log("⚠️ 连接尚未建立", "system");
   }
+}
 
-  function startCall() {
-    alert("📞 正在拉起语音通话...");
-    // 这里可改成真正的 WebRTC 呼叫逻辑
+function log(message, type="other"){
+  const msgDiv = document.createElement("div");
+  msgDiv.className = `msg ${type}`;
+  msgDiv.textContent = message;
+  logDiv.appendChild(msgDiv);
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+function insertEmoji(){
+  const msgInput = document.getElementById("msg");
+  msgInput.value += "😊";
+  msgInput.focus();
+}
+
+// -------------------- WebRTC语音通话功能 --------------------
+let localStream;
+let peerConnection;
+let isCalling = false;
+const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+function startCall(isIncoming=false){
+  if(isCalling) return;
+  isCalling = true;
+
+  // 创建通话界面
+  const callOverlay = document.createElement('div');
+  callOverlay.id = 'callOverlay';
+  Object.assign(callOverlay.style,{
+    position:'fixed',top:0,left:0,width:'100%',height:'100%',
+    background:'rgba(255,255,255,0.2)',backdropFilter:'blur(10px)',
+    display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',
+    zIndex:9999
+  });
+
+  const status = document.createElement('div');
+  status.id = 'callStatus';
+  status.innerText = isIncoming ? `${partnerInfo.username} 来电` : '正在等待对方接听...';
+  Object.assign(status.style,{marginBottom:'20px',color:'#fff',fontSize:'20px'});
+  callOverlay.appendChild(status);
+
+  const audio = document.createElement('audio');
+  audio.src = 'https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg';
+  audio.loop = true;
+  audio.autoplay = true;
+  callOverlay.appendChild(audio);
+
+  const hangupBtn = document.createElement('button');
+  hangupBtn.innerText = '📞挂断';
+  Object.assign(hangupBtn.style,{background:'red',color:'#fff',marginRight:'20px',padding:'10px 20px'});
+  hangupBtn.onclick = () => endCall(true);
+
+  const acceptBtn = document.createElement('button');
+  acceptBtn.innerText = '📞接听';
+  Object.assign(acceptBtn.style,{background:'green',color:'#fff',padding:'10px 20px'});
+  acceptBtn.onclick = acceptCall;
+
+  const btnContainer = document.createElement('div');
+  btnContainer.style.display = 'flex';
+  if(isIncoming) btnContainer.appendChild(acceptBtn);
+  btnContainer.appendChild(hangupBtn);
+  callOverlay.appendChild(btnContainer);
+
+  document.body.appendChild(callOverlay);
+
+  // 获取麦克风
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    localStream = stream;
+    peerConnection = new RTCPeerConnection(config);
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+    peerConnection.ontrack = e => {
+      let remoteAudio = document.getElementById('remoteAudio');
+      if(!remoteAudio){
+        remoteAudio = document.createElement('audio');
+        remoteAudio.id = 'remoteAudio';
+        remoteAudio.autoplay = true;
+        document.body.appendChild(remoteAudio);
+      }
+      remoteAudio.srcObject = e.streams[0];
+    };
+
+    peerConnection.onicecandidate = e => {
+      if(e.candidate) {
+        socket.send(JSON.stringify({ type:'ice', candidate:e.candidate, to: partnerInfo.username }));
+      }
+    };
+
+    if(!isIncoming){
+      // 主叫创建offer
+      peerConnection.createOffer().then(offer => {
+        peerConnection.setLocalDescription(offer);
+        socket.send(JSON.stringify({ type:'offer', offer, to: partnerInfo.username, username, avatar:'' }));
+      });
+    }
+  });
+}
+
+// 接听
+function acceptCall(){
+  const callStatus = document.getElementById('callStatus');
+  callStatus.innerText = '已接听，正在建立通话...';
+  document.querySelector('#callOverlay audio').pause();
+
+  peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer)).then(()=>{
+    peerConnection.createAnswer().then(answer=>{
+      peerConnection.setLocalDescription(answer);
+      socket.send(JSON.stringify({ type:'answer', answer, to: partnerInfo.username }));
+    });
+  });
+}
+
+// 挂断
+function endCall(isCaller=false){
+  if(peerConnection) peerConnection.close();
+  if(localStream){
+    localStream.getTracks().forEach(track=>track.stop());
   }
+  const overlay = document.getElementById('callOverlay');
+  if(overlay) overlay.remove();
+  isCalling = false;
+}
 </script>
 
 </body>

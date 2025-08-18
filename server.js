@@ -1,59 +1,40 @@
 // server.js
 import WebSocket, { WebSocketServer } from 'ws';
-import { validateEvent } from '@nostr-relay/validator';
+import { validateEvent } from 'nostr-tools';
 
-// 保存所有连接和事件
+const wss = new WebSocketServer({ port: 8080 });
+console.log('Nostr relay running on ws://localhost:8080');
+
+// 存储所有连接
 const clients = new Set();
-const events = [];
-
-// 创建 WebSocket 服务器
-const wss = new WebSocketServer({ port: 8080 }, () => {
-  console.log('Nostr relay started on ws://localhost:8080');
-});
 
 wss.on('connection', (ws) => {
   clients.add(ws);
-  console.log('New client connected');
+  console.log('Client connected. Total:', clients.size);
 
   ws.on('message', (message) => {
     try {
-      const data = JSON.parse(message.toString());
+      const event = JSON.parse(message.toString());
 
-      // 处理 Nostr 请求类型
-      if (Array.isArray(data)) {
-        const [type, subId, payload] = data;
+      // 验证事件
+      if (!validateEvent(event)) {
+        ws.send(JSON.stringify({ ok: false, error: 'Invalid event' }));
+        return;
+      }
 
-        if (type === 'EVENT') {
-          // 验证事件合法性
-          if (validateEvent(payload)) {
-            events.push(payload);
-            console.log('Received valid event:', payload);
-
-            // 广播给所有客户端
-            broadcast(JSON.stringify(['EVENT', payload]));
-          } else {
-            console.log('Invalid event:', payload);
-          }
-        } else if (type === 'REQ') {
-          // 订阅事件，简单实现：发送所有已存事件
-          ws.send(JSON.stringify(['EVENT', events]));
+      // 广播给其他客户端
+      for (const client of clients) {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(event));
         }
       }
-    } catch (err) {
-      console.error('Error parsing message:', err);
+    } catch (e) {
+      console.error('Error processing message:', e);
     }
   });
 
   ws.on('close', () => {
     clients.delete(ws);
-    console.log('Client disconnected');
+    console.log('Client disconnected. Total:', clients.size);
   });
 });
-
-function broadcast(msg) {
-  for (const client of clients) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(msg);
-    }
-  }
-}

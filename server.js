@@ -1,12 +1,15 @@
-import { Relay } from 'nostr-relay'
+import WebSocket, { WebSocketServer } from "ws";
 
-// 创建一个 relay（内存存储，也可以接 SQLite）
-const relay = new Relay({
-  port: process.env.PORT || 3000, // Render 会分配 PORT
-  persist: false                  // 设置为 true 时可接 SQLite
-})
+const wss = new WebSocketServer({ port: process.env.PORT || 3000 });
 
-// 启动
-relay.listen().then(() => {
-  console.log(`Relay running at ws://localhost:${relay.port}`)
-})
+wss.on("connection", (ws) => {
+  console.log("client connected");
+
+  ws.on("message", (msg) => {
+    console.log("recv:", msg.toString());
+    // 简单 echo 回去
+    ws.send(`echo: ${msg}`);
+  });
+});
+
+console.log("Relay running at ws://localhost:3000");

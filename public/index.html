@@ -187,7 +187,14 @@ socket.onopen = () => {
   //socket.send(JSON.stringify({ system: true, join: true, username, avatar: "", requestRoom: true }));
   socket.send(
     JSON.stringify(
-      ["REQ", "sub1", { kinds:[1] }]
+      [
+        "REQ", 
+        "sub1",
+        { 
+          kinds:[1],
+          "#t": ["room10008"] 
+        }
+      ]
     )
   );
 };
@@ -214,7 +221,7 @@ socket.onmessage = async (e) => {
         if(data[0] === "EVENT"){
           const event = data[2]; // {id, pubkey, content, tags...}
          // 只显示带 room1 标签的消息
-         if(event.tags.some(t => t[0]==="t" && t[1]==="room1")){
+         if(event.tags.some(t => t[0]==="t" && t[1]==="room10008")){
           log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
          }
        }
@@ -232,7 +239,7 @@ socket.onmessage = async (e) => {
         log("等待其他人加入...", "system");
       }
     } 
-    else if (data.username && data.msg && data.room === myRoom) {
+    else if (data.username && data.msg ) {
       const type = data.username === username ? "me" : "other";
       const name = data.username || "未知用户";
       log(`${name}: ${data.msg}`, type);
@@ -268,12 +275,12 @@ async function send() {
   const msg = msgInput.value.trim();
   if (!msg) return;
 
-  if(socket.readyState === WebSocket.OPEN && myRoom){
+  if(socket.readyState === WebSocket.OPEN){
   const event = {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room1"]],   // 指定聊天室标签
+    tags: [["t", "room10008"]],   // 指定聊天室标签
     content: msg
   };
 

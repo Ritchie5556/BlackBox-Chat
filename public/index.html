@@ -137,6 +137,9 @@
 </script>
 
 <script>
+ function toHex(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
 let username = prompt("请输入你的昵称");
 while(!username || username.trim() === "") {
   username = prompt("昵称不能为空，请输入你的昵称");

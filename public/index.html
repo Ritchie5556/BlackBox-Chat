@@ -115,6 +115,17 @@
   <button id="emojiBtn" onclick="toggleEmojiPanel()">😊</button>
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
+<script type="module">
+  import * as secp from "https://cdn.jsdelivr.net/npm/@noble/curves@1.8.1/secp256k1.js";
+
+  window.nobleSchnorr = secp.schnorr;
+
+  // 启动时生成一对密钥
+  const privKeyBytes = secp.utils.randomPrivateKey();
+  window.myPrivKey = privKeyBytes;
+  const pubKeyBytes = await secp.schnorr.getPublicKey(privKeyBytes);
+  window.myPubKey = Buffer.from(pubKeyBytes).toString("hex");
+</script>
 
 <script>
 let username = prompt("请输入你的昵称");
@@ -172,7 +183,12 @@ socket.onmessage = async (e) => {
       log(data.msg, "system");
 
       if (data.room) myRoom = data.room;
-
+       if (Array.isArray(msg) && msg[0] === "EVENT") {
+         const event = msg[1];
+         if (event.kind === 1) {
+           log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
+         }
+      }
       if (data.join && data.username !== username) {
         partnerInfo.username = data.username;
         partnerInfo.avatar = data.avatar || partnerInfo.avatar;
@@ -218,7 +234,7 @@ socket.onmessage = async (e) => {
 
 socket.onerror = () => log("❌ 连接出错", "system");
 
-function send() {
+async function send() {
   const msgInput = document.getElementById("msg");
   const msg = msgInput.value.trim();
   if (!msg) return;
@@ -232,6 +248,28 @@ function send() {
   } else {
     log("⚠️ 连接尚未建立或房间未分配", "system");
   }
+  // 构造 Nostr Event
+  const event = {
+    pubkey: window.myPubKey,  // 启动时生成
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 1,
+    tags: [],
+    content: msg
+  };
+
+  // 计算 id
+  const payload = [0, event.pubkey, event.created_at, event.kind, event.tags, event.content];
+  const hash = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+  event.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+  // 用私钥签名
+  const sig = await nobleSchnorr.sign(event.id, window.myPrivKey);
+  event.sig = sig;
+
+  // 发送给 Relay
+  socket.send(JSON.stringify(["EVENT", event]));
+
+  msgInput.value = "";
 }
 
 function log(message, type="other"){

@@ -187,16 +187,24 @@ socket.onopen = () => {
 socket.onmessage = async (e) => {
   try {
     const data = JSON.parse(e.data);
-
     if (data.system) {
       log(data.msg, "system");
-
       if (data.room) myRoom = data.room;
        if (Array.isArray(msg) && msg[0] === "EVENT") {
          const event = msg[1];
          if (event.kind === 1) {
-           log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
+            console.log("收到消息:", event.content);
+            // 可以调用你的显示函数，例如：
+            log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
          }
+            // 处理普通消息对象
+          else if (data.username && data.msg) {
+            log(`${data.username}: ${data.msg}`, data.username === username ? "me" : "other");
+         }
+           // 系统消息
+         else if (data.system) {
+            log(data.msg, "system");
+         } 
       }
       if (data.join && data.username !== username) {
         partnerInfo.username = data.username;
@@ -242,19 +250,16 @@ socket.onmessage = async (e) => {
 };
 
 socket.onerror = () => log("❌ 连接出错", "system");
-
 async function send() {
   const msgInput = document.getElementById("msg");
   const msg = msgInput.value.trim();
   if (!msg) return;
 
-  if(socket.readyState === WebSocket.OPEN && myRoom && partnerInfo.online){
+  if(socket.readyState === WebSocket.OPEN && myRoom){
     const data = { username, msg, avatar: "", room: myRoom };
     socket.send(JSON.stringify(data));
     msgInput.value = "";
-  } else if(!partnerInfo.online){
-    log("⚠️ 当前没有在线用户，等待其他人加入...", "system");
-  } else {
+  }  else {
     log("⚠️ 连接尚未建立或房间未分配", "system");
   }
   // 构造 Nostr Event
@@ -270,14 +275,11 @@ async function send() {
   const payload = [0, event.pubkey, event.created_at, event.kind, event.tags, event.content];
   const hash = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
   event.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-
   // 用私钥签名
   const sig = await nobleSchnorr.sign(event.id, window.myPrivKey);
   event.sig = sig;
-
   // 发送给 Relay
   socket.send(JSON.stringify(["EVENT", event]));
-
   msgInput.value = "";
 }
 

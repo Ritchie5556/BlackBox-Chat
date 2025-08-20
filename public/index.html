@@ -197,6 +197,15 @@ socket.onopen = () => {
       ]
     )
   );
+  // 发一条 system join 消息
+  const joinEvent = {
+    pubkey: window.myPubKey,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 1,
+    tags: [["t", "room1"], ["join","true"]],
+    content: `${username} 加入了聊天室`
+  };
+  send(joinEvent);
 };
 
 socket.onmessage = async (e) => {
@@ -222,11 +231,17 @@ socket.onmessage = async (e) => {
           const event = data[2]; // {id, pubkey, content, tags...}
          // 只显示带 room1 标签的消息
          if(event.tags.some(t => t[0]==="t" && t[1]==="room10008")){
-           if(event.pubkey === window.myPubKey){
-             log(`我: ${event.content}`, "me");
-           } else {
-             log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
-           }
+           // 维护 participants 列表
+            if(!participants.includes(event.pubkey)){
+               participants.push(event.pubkey);
+               console.log("当前参与者:", participants);
+             }
+    // 判断身份（按先后顺序）
+            let type = "other";
+            if(event.pubkey === participants[0]) type = "me";
+              else if(event.pubkey === participants[1]) type = "other";
+               log(`${event.pubkey.slice(0,8)}: ${event.content}`, type);
+            }
          }
        }
      }

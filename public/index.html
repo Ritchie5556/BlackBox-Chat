@@ -202,14 +202,14 @@ socket.onopen = () => {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room1"], ["join","true"]],
+    tags: [["t", "room10008"], ["join","true"]],
     content: `${username} 加入了聊天室`
   };
   send(joinEvent);
 };
 
 socket.onmessage = async (e) => {
-   console.log("📩 收到:", e.data); //日志
+   console.log("收到:", e.data); //日志
   try {
     const data = JSON.parse(e.data);
     if (data.system) {

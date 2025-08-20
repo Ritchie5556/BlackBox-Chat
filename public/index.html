@@ -184,7 +184,12 @@ function insertEmoji(symbol){
 socket.onopen = () => {
   log("✅ 已连接Relay网络聊天室", "system");
   document.getElementById("sendBtn").disabled = false;
-  socket.send(JSON.stringify({ system: true, join: true, username, avatar: "", requestRoom: true }));
+  //socket.send(JSON.stringify({ system: true, join: true, username, avatar: "", requestRoom: true }));
+  socket.send(
+    JSON.stringify(
+      ["REQ", "sub1", { kinds:[1] }]
+    )
+  );
 };
 
 socket.onmessage = async (e) => {
@@ -200,22 +205,20 @@ socket.onmessage = async (e) => {
        if (data.join) {
           console.log("用户加入:", data.username);
        }
-       if (Array.isArray(msg) && msg[0] === "EVENT") {
-         const event = msg[1];
-         if (event.kind === 1) {
-            console.log("收到消息:", event.content);
-            // 可以调用你的显示函数，例如：
-            log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
+       if(Array.isArray(data)){
+        // Relay 确认事件 OK
+        if(data[0] === "OK"){
+          console.log("✅ Relay 确认:", data);
+        }
+        // Relay 推送的 EVENT
+        if(data[0] === "EVENT"){
+          const event = data[2]; // {id, pubkey, content, tags...}
+         // 只显示带 room1 标签的消息
+         if(event.tags.some(t => t[0]==="t" && t[1]==="room1")){
+          log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
          }
-            // 处理普通消息对象
-          else if (data.username && data.msg) {
-            log(`${data.username}: ${data.msg}`, data.username === username ? "me" : "other");
-         }
-           // 系统消息
-         else if (data.system) {
-            log(data.msg, "system");
-         } 
-      }
+       }
+     }
       if (data.join && data.username !== username) {
         partnerInfo.username = data.username;
         partnerInfo.avatar = data.avatar || partnerInfo.avatar;
@@ -255,7 +258,7 @@ socket.onmessage = async (e) => {
       if(peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
     }
   } catch {
-    log(e.data, "other");
+    log("解析失败",e.data, err);
   }
 };
 
@@ -266,31 +269,30 @@ async function send() {
   if (!msg) return;
 
   if(socket.readyState === WebSocket.OPEN && myRoom){
-    const data = { username, msg, avatar: "", room: myRoom };
-    socket.send(JSON.stringify(data));
-    msgInput.value = "";
-  }  else {
-    log("⚠️ 连接尚未建立或房间未分配", "system");
-  }
-  // 构造 Nostr Event
   const event = {
-    pubkey: window.myPubKey,  // 启动时生成
+    pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [],
+    tags: [["t", "room1"]],   // 指定聊天室标签
     content: msg
   };
 
   // 计算 id
   const payload = [0, event.pubkey, event.created_at, event.kind, event.tags, event.content];
-  const hash = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
   event.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-  // 用私钥签名
+
+  // 签名
   const sig = await nobleSchnorr.sign(event.id, window.myPrivKey);
   event.sig = toHex(sig);
-  // 发送给 Relay
+
+  // 发送
   socket.send(JSON.stringify(["EVENT", event]));
+  log(`我: ${msg}`, "me");
   msgInput.value = "";
+  }  else {
+    log("⚠️ 连接尚未建立或房间未分配", "system");
+  }
 }
 
 function log(message, type="other"){

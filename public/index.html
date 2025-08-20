@@ -117,14 +117,12 @@
 </div>
 <script type="module">
   import * as secp from "https://cdn.jsdelivr.net/npm/@noble/secp256k1@1.5.3/lib/esm/index.js";
-
-  window.nobleSchnorr = secp.schnorr;
-
-  // 启动时生成一对密钥
-  const privKeyBytes = secp.utils.randomPrivateKey();
-  window.myPrivKey = privKeyBytes;
-  const pubKeyBytes = await secp.schnorr.getPublicKey(privKeyBytes);
-  window.myPubKey = Buffer.from(pubKeyBytes).toString("hex");
+window.nobleSchnorr = secp256k1.schnorr;
+// 生成密钥对
+const privKeyBytes = secp256k1.utils.randomPrivateKey();
+window.myPrivKey = privKeyBytes;
+const pubKeyBytes = await secp256k1.schnorr.getPublicKey(privKeyBytes);
+windo
 </script>
 
 <script>

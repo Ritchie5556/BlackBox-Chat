@@ -181,6 +181,7 @@ function insertEmoji(symbol){
 }
 
 // -------------------- 聊天功能 --------------------
+let participants = [];
 socket.onopen = () => {
   log("✅ 已连接Relay网络聊天室", "system");
   document.getElementById("sendBtn").disabled = false;
@@ -237,11 +238,8 @@ socket.onmessage = async (e) => {
                console.log("当前参与者:", participants);
              }
     // 判断身份（按先后顺序）
-            let type = "other";
-            if(event.pubkey === participants[0]) type = "me";
-              else if(event.pubkey === participants[1]) type = "other";
-               log(`${event.pubkey.slice(0,8)}: ${event.content}`, type);
-            }
+          const type = (event.pubkey === window.myPubKey) ? "me" : "other";
+          log(`${event.pubkey.slice(0,8)}: ${event.content}`, type);
          }
        }
      }

@@ -179,17 +179,24 @@ function insertEmoji(symbol){
 
 // -------------------- 聊天功能 --------------------
 socket.onopen = () => {
-  log("✅ 已连接聊天室", "system");
+  log("✅ 已连接Relay网络聊天室", "system");
   document.getElementById("sendBtn").disabled = false;
   socket.send(JSON.stringify({ system: true, join: true, username, avatar: "", requestRoom: true }));
 };
 
 socket.onmessage = async (e) => {
+   console.log("📩 收到:", e.data); //日志
   try {
     const data = JSON.parse(e.data);
     if (data.system) {
-      log(data.msg, "system");
-      if (data.room) myRoom = data.room;
+       log(data.msg, "system");
+      if (data.room){
+        myRoom = data.room;
+        console.log("已经分配好房间了",myroom)
+      }
+       if (data.join) {
+          console.log("用户加入:", data.username);
+       }
        if (Array.isArray(msg) && msg[0] === "EVENT") {
          const event = msg[1];
          if (event.kind === 1) {

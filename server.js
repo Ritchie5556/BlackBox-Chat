@@ -1,40 +1,34 @@
-// server.js
-import WebSocket, { WebSocketServer } from 'ws';
-import { validateEvent } from 'nostr-tools';
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const path = require('path');
 
-const wss = new WebSocketServer({ port: 8080 });
-console.log('Nostr relay running on ws://localhost:8080');
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-// 存储所有连接
-const clients = new Set();
+// Serve static HTML
+app.use(express.static(path.join(__dirname, 'public')));
 
+// Broadcast
 wss.on('connection', (ws) => {
-  clients.add(ws);
-  console.log('Client connected. Total:', clients.size);
-
-  ws.on('message', (message) => {
+  ws.on('message', (data) => {
     try {
-      const event = JSON.parse(message.toString());
+      const { username, msg } = JSON.parse(data);
+      const full = `${username}：${msg}`;
 
-      // 验证事件
-      if (!validateEvent(event)) {
-        ws.send(JSON.stringify({ ok: false, error: 'Invalid event' }));
-        return;
-      }
-
-      // 广播给其他客户端
-      for (const client of clients) {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(event));
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(full);
         }
-      }
+      });
     } catch (e) {
-      console.error('Error processing message:', e);
+      console.log("格式错误", e);
     }
   });
+});
 
-  ws.on('close', () => {
-    clients.delete(ws);
-    console.log('Client disconnected. Total:', clients.size);
-  });
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`✅ 服务运行中，端口 ${PORT}`);
 });

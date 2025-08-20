@@ -116,13 +116,24 @@
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
 <script type="module">
-  import * as secp from "https://cdn.jsdelivr.net/npm/@noble/secp256k1@1.5.3/lib/esm/index.js";
-window.nobleSchnorr = secp256k1.schnorr;
-// 生成密钥对
-const privKeyBytes = secp256k1.utils.randomPrivateKey();
-window.myPrivKey = privKeyBytes;
-const pubKeyBytes = await secp256k1.schnorr.getPublicKey(privKeyBytes);
-windo
+  import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
+  import { sha256 } from "https://esm.sh/@noble/hashes/sha256";
+
+  // 工具函数：Uint8Array → hex
+  function toHex(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // 生成私钥、公钥
+  const priv = schnorr.utils.randomPrivateKey();
+  const pub = schnorr.getPublicKey(priv);
+
+  // 挂到全局，后面 send() 用
+  window.myPrivKey = priv;
+  window.myPubKey = toHex(pub);
+  window.nobleSchnorr = schnorr;
+
+  console.log("pubkey:", window.myPubKey);
 </script>
 
 <script>

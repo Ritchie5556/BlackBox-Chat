@@ -148,7 +148,7 @@ while(!username || username.trim() === "") {
 const partnerAvatar = document.getElementById("partnerAvatar");
 const partnerName = document.getElementById("partnerName");
 const logDiv = document.getElementById("log");
-const socket = new WebSocket("wss://nostr.wine");
+const socket = new WebSocket("wss://relay.damus.io");
 
 let myRoom = null;
 let partnerInfo = { username: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };

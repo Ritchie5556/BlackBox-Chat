@@ -64,7 +64,7 @@
     background: rgba(255,255,255,0.8);
     word-wrap: break-word;
   }
-  .me { background: rgba(255,255,255,0.9); align-self: flex-end; }
+  .me { background: #DCF8C6; align-self: flex-end; }
   .other { background: rgba(255,255,255,0.6); align-self: flex-start; }
   .system { background: rgba(200,200,200,0.7); text-align: center; color: #000; }
   .input-area {
@@ -222,7 +222,11 @@ socket.onmessage = async (e) => {
           const event = data[2]; // {id, pubkey, content, tags...}
          // 只显示带 room1 标签的消息
          if(event.tags.some(t => t[0]==="t" && t[1]==="room10008")){
-          log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
+           if(event.pubkey === window.myPubKey){
+             log(`我: ${event.content}`, "me");
+           } else {
+             log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
+           }
          }
        }
      }

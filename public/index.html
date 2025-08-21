@@ -228,7 +228,7 @@ socket.onmessage = async (e) => {
       if (data.join) {
         console.log("用户加入:", data.username);
       }
-   if(Array.isArray(data){ 
+   if(Array.isArray(data)){ 
         // Relay 确认事件 OK
         if (data[0] === "OK") {
           console.log("✅ Relay 确认:", data);
@@ -307,7 +307,7 @@ socket.onmessage = async (e) => {
         await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
       }
     }
-  } catch {
+  } catch(err) {
     console.error("解析失败", e.data, err);
     log("解析失败: " + e.data, "system");
   }

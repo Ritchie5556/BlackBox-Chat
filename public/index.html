@@ -206,8 +206,8 @@ socket.onopen = () => {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10008"], ["join","true",username]],
-    content: `${username} 加入了聊天室`
+    tags: [["t", "room10008"], ["join","true",window.username]],
+    content: `${window.username} 加入了聊天室`
   };
   send(joinEvent);
 };
@@ -317,13 +317,13 @@ async function send(eventobj=null) {
    const msg = msgInput.value.trim();
    if (!msg) return;
    if(socket.readyState === WebSocket.OPEN){
-   const eventobj = {
-    pubkey: window.myPubKey,
-    created_at: Math.floor(Date.now() / 1000),
-    kind: 1,
-    tags: [["t", "room10008"]],   // 指定聊天室标签
-    content: msg
-    };
+     const eventobj = {
+      pubkey: window.myPubKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [["t", "room10008"]],   // 指定聊天室标签
+      content: msg
+     };
 
    // 计算 id
    const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
@@ -335,7 +335,7 @@ async function send(eventobj=null) {
   // 发送
     socket.send(JSON.stringify(["EVENT", eventobj]));
     if(!eventObj.tags.some(t=>t[0]==="join")){
-      document.getElementById("msg").value = "";
+       msgInput.value = "";
     }
   }  else {
     log("⚠️ 连接尚未建立或房间未分配", "system");

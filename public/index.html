@@ -243,6 +243,7 @@ socket.onmessage = async (e) => {
                 const joinedName = event.tags.find(t => t[0] === "join")[1] || "未知用户";
                 log(`${joinedName} 已加入房间`, "system");
             }
+             return
           }
 
         if (type === "other") {

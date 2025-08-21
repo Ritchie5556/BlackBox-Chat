@@ -311,8 +311,6 @@ socket.onmessage = async (e) => {
     console.error("解析失败", e.data, err);
     log("解析失败: " + e.data, "system");
   }
-}
-
 socket.onerror = () => log("❌ 连接出错", "system");
 async function send(eventobj=null) {
  if(!eventobj){

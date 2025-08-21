@@ -246,8 +246,9 @@ socket.onmessage = async (e) => {
                 log(`${joinedName} 已加入房间`, "system");
             }
           }
-           return
         }
+         return
+   } 
         if (type === "other") {
           partnerInfo.pubkey = event.pubkey;
           partnerInfo.username = partnerInfo.username || "未知用户";

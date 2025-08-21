@@ -256,7 +256,6 @@ socket.onmessage = async (e) => {
           partnerName.textContent = partnerInfo.username;
           partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
         }
-      } // <- 这里结束了 Array.isArray(data)
 
       // ⚠️ 注意：这部分（event.tags 判断）其实是放在 Array.isArray(data) 外了
       if (event.tags.some(t => t[0] === "t" && t[1] === "room10008")) {

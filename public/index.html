@@ -137,6 +137,7 @@
 </script>
 
 <script>
+  window.username = "";//名字
  function toHex(bytes) {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
@@ -268,18 +269,29 @@ socket.onmessage = async (e) => {
         // Relay 推送的 EVENT
         if(data[0] === "EVENT"){
           const event = data[2];
+           console.log("收到 EVENT:", event.content);  
           if (event.kind === 1) {
           // 用 pubkey 判断消息是自己还是对方
-            const type = event.pubkey === window.myPubKey ? "me" : "other";
-            const name = type === "me" ? username : event.pubkey.slice(0, 8);
-            log(`${name}: ${event.content}`, type);
+            if (event.pubkey === window.myPubKey) return;
+            let name;
+            if (type === "me") {
+                name = window.username;
+            } else {
+                const joinTag = event.tags.find(t => t[0] === "join");
+            if (joinTag) {
+                name = joinTag[1] || event.pubkey.slice(0, 8);
+            } else {
+               name = event.pubkey.slice(0, 8);
+         }
+           // 显示到页面
+               log(`${name}: ${event.content}`, "other");
+      }
             if (event.tags.some(t => t[0] === "join")) {
                 const joinedName = event.tags.find(t => t[0] === "join")[1] || "未知用户";
                 log(`${joinedName} 已加入房间`, "system");
             }
           }
         }
-         return
    } 
         if (type === "other") {
           partnerInfo.pubkey = event.pubkey;

@@ -226,14 +226,13 @@ socket.onmessage = async (e) => {
         console.log("用户加入:", data.username);
       }
 
-      if (Array.isArray(data)) {
         // Relay 确认事件 OK
         if (data[0] === "OK") {
           console.log("✅ Relay 确认:", data);
         }
 
         // Relay 推送的 EVENT
-        if (data[0] === "EVENT") {
+        if(Array.isArray(data) && data[0] === "EVENT"){{
           const event = data[2];
           if (event.kind === 1) {
           // 用 pubkey 判断消息是自己还是对方
@@ -245,8 +244,6 @@ socket.onmessage = async (e) => {
                 log(`${joinedName} 已加入房间`, "system");
             }
           }
-          return;
-        }
 
         if (type === "other") {
           partnerInfo.pubkey = event.pubkey;

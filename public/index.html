@@ -118,7 +118,7 @@
 <script type="module">
   import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
   import { sha256 } from "https://esm.sh/@noble/hashes/sha256";
-
+  window.username = ""; 
   // 工具函数：Uint8Array → hex
   function toHex(bytes) {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -211,7 +211,38 @@ socket.onopen = () => {
   };
   send(joinEvent);
 };
+async function send(eventobj=null) {
+ if(!eventobj){
+   const msgInput = document.getElementById("msg");
+   const msg = msgInput.value.trim();
+   if (!msg) return;
+   if(socket.readyState === WebSocket.OPEN){
+     const eventobj = {
+      pubkey: window.myPubKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [["t", "room10008"]],   // 指定聊天室标签
+      content: msg
+     };
 
+   // 计算 id
+   const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
+   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+   eventobj.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+  // 签名
+   const sig = await nobleSchnorr.sign(event.id, window.myPrivKey);
+   eventobj.sig = toHex(sig);
+  // 发送
+    socket.send(JSON.stringify(["EVENT", eventobj]));
+    if(!eventObj.tags.some(t=>t[0]==="join")){
+       msgInput.value = "";
+       log(`${window.username}: ${msg}`, "me"); 
+    }
+  }  else {
+    log("⚠️ 连接尚未建立或房间未分配", "system");
+  }
+ }
+ }
 socket.onmessage = async (e) => {
   console.log("收到:", e.data); //日志
   try {
@@ -310,38 +341,8 @@ socket.onmessage = async (e) => {
     console.error("解析失败", e.data, err);
     log("解析失败: " + e.data, "system");
   }
-socket.onerror = () => log("❌ 连接出错", "system");
-async function send(eventobj=null) {
- if(!eventobj){
-   const msgInput = document.getElementById("msg");
-   const msg = msgInput.value.trim();
-   if (!msg) return;
-   if(socket.readyState === WebSocket.OPEN){
-     const eventobj = {
-      pubkey: window.myPubKey,
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [["t", "room10008"]],   // 指定聊天室标签
-      content: msg
-     };
-
-   // 计算 id
-   const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
-   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
-   eventobj.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-  // 签名
-   const sig = await nobleSchnorr.sign(event.id, window.myPrivKey);
-   eventobj.sig = toHex(sig);
-  // 发送
-    socket.send(JSON.stringify(["EVENT", eventobj]));
-    if(!eventObj.tags.some(t=>t[0]==="join")){
-       msgInput.value = "";
-    }
-  }  else {
-    log("⚠️ 连接尚未建立或房间未分配", "system");
-  }
- }
- }
+socket.onerror = () => 
+  log("❌ 连接出错", "system");
 }  
   
 

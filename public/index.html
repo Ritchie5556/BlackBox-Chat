@@ -141,11 +141,11 @@
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
 window.onload = () => {
-  let username = prompt("请输入你的昵称");
-  while(!username || username.trim() === "") {
-    username = prompt("昵称不能为空，请输入你的昵称");
-  }
-  window.username = username; // 挂到全局
+  let username = "";
+  do {
+    username = prompt("请输入你的昵称（必填）");
+  } while(!username || username.trim() === "");
+  window.username = username;
 };
 
 const partnerAvatar = document.getElementById("partnerAvatar");

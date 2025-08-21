@@ -234,11 +234,12 @@ socket.onmessage = async (e) => {
 
         // Relay 推送的 EVENT
         if (data[0] === "EVENT") {
-          const event = data[1];
+          const event = data[2];
           if (event.kind === 1) {
             // 用 pubkey 判断消息是自己还是对方
-            const type = data.pubkey === window.myPubKey ? "me" : "other";
-            log(`${type === "me" ? username : event.pubkey.slice(0, 8)}: ${event.content}`, type);
+            const type = event.pubkey === window.myPubKey ? "me" : "other";
+            const name = type === "me" ? username : event.pubkey.slice(0, 8);
+            log(`${name}: ${event.content}`, type);
           }
           return;
         }

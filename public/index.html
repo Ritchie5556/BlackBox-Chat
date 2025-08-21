@@ -315,7 +315,7 @@ socket.onmessage = async (e) => {
 
 socket.onerror = () => log("❌ 连接出错", "system");
 async function send(eventobj=null) {
- if(!eventObj){
+ if(!eventobj){
    const msgInput = document.getElementById("msg");
    const msg = msgInput.value.trim();
    if (!msg) return;

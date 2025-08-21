@@ -140,10 +140,13 @@
  function toHex(bytes) {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
-let username = prompt("请输入你的昵称");
-while(!username || username.trim() === "") {
-  username = prompt("昵称不能为空，请输入你的昵称");
-}
+window.onload = () => {
+  let username = prompt("请输入你的昵称");
+  while(!username || username.trim() === "") {
+    username = prompt("昵称不能为空，请输入你的昵称");
+  }
+  window.username = username; // 挂到全局
+};
 
 const partnerAvatar = document.getElementById("partnerAvatar");
 const partnerName = document.getElementById("partnerName");

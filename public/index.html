@@ -203,7 +203,7 @@ socket.onopen = () => {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10008"], ["join","true"，username]],
+    tags: [["t", "room10008"], ["join","true",username]],
     content: `${username} 加入了聊天室`
   };
   send(joinEvent);
@@ -236,7 +236,7 @@ socket.onmessage = async (e) => {
         if (data[0] === "EVENT") {
           const event = data[2];
           if (event.kind === 1) {
-            // 用 pubkey 判断消息是自己还是对方
+          // 用 pubkey 判断消息是自己还是对方
             const type = event.pubkey === window.myPubKey ? "me" : "other";
             const name = type === "me" ? username : event.pubkey.slice(0, 8);
             log(`${name}: ${event.content}`, type);
@@ -307,7 +307,8 @@ socket.onmessage = async (e) => {
       }
     }
   } catch {
-    log("解析失败", e.data, err);
+    console.error("解析失败", e.data, err);
+    log("解析失败: " + e.data, "system");
   }
 }
 
@@ -344,6 +345,8 @@ async function send(event) {
 }
 
 function log(message, type="other"){
+  const logDiv = document.getElementById("log");
+  if(!logDiv) return; // 防止 logDiv 未找到报错
   const msgDiv = document.createElement("div");
   msgDiv.className = `msg ${type}`;
   msgDiv.textContent = message;

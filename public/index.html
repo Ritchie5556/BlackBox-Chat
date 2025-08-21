@@ -222,7 +222,10 @@ async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10008"]],
+        tags: [
+          ["t", "room10008"],
+          ["join", window.username],
+        ],  
         content: msg
       };
 

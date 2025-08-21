@@ -233,7 +233,10 @@ socket.onmessage = async (e) => {
           if (event.kind === 1) {
            // 用 pubkey 判断消息是自己还是对方
             const type = data.pubkey === window.myPubKey ? "me" : "other";
-             log(`${type === "me" ? username : (partnerInfo.username || '对方')}: ${data.msg || event.content}`, type);
+            log(`${type === "me" ? username : event.pubkey.slice(0, 8)}: ${event.content}`, type);
+          }
+             return
+        }  
              if (type === "other") {
                partnerInfo.pubkey = event.pubkey;
                partnerInfo.username = partnerInfo.username || "未知用户";
@@ -251,7 +254,7 @@ socket.onmessage = async (e) => {
              }
     // 判断身份（按先后顺序）
           const type = (event.pubkey === window.myPubKey) ? "me" : "other";
-          log(`${event.pubkey.slice(0,8)}: ${event.content}`, type);
+           log(`${name}: ${event.content}`, type);
          }
        }
      }
@@ -323,9 +326,8 @@ async function send() {
   event.sig = toHex(sig);
 
   // 发送
-  socket.send(JSON.stringify(["EVENT", event]));
-  log(`我: ${msg}`, "me");
-  msgInput.value = "";
+    socket.send(JSON.stringify(["EVENT", event]));
+    msgInput.value = "";
   }  else {
     log("⚠️ 连接尚未建立或房间未分配", "system");
   }

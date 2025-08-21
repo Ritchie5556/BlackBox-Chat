@@ -210,77 +210,73 @@ socket.onopen = () => {
 };
 
 socket.onmessage = async (e) => {
-  console.log("收到:", e.data);
-
+  console.log("收到:", e.data); //日志
   try {
     const data = JSON.parse(e.data);
 
-    // ========== 系统消息 ==========
     if (data.system) {
       log(data.msg, "system");
 
       if (data.room) {
         myRoom = data.room;
-        console.log("已经分配好房间了", myRoom);
+        console.log("已经分配好房间了", myroom);
       }
 
       if (data.join) {
-        if (data.username !== username) {
-          console.log("用户加入:", data.username);
-          partnerInfo.username = data.username;
-          partnerInfo.avatar = data.avatar || partnerInfo.avatar;
+        console.log("用户加入:", data.username);
+      }
+
+      if (Array.isArray(data)) {
+        // Relay 确认事件 OK
+        if (data[0] === "OK") {
+          console.log("✅ Relay 确认:", data);
+        }
+
+        // Relay 推送的 EVENT
+        if (data[0] === "EVENT") {
+          const event = data[1];
+          if (event.kind === 1) {
+            // 用 pubkey 判断消息是自己还是对方
+            const type = data.pubkey === window.myPubKey ? "me" : "other";
+            log(`${type === "me" ? username : event.pubkey.slice(0, 8)}: ${event.content}`, type);
+          }
+          return;
+        }
+
+        if (type === "other") {
+          partnerInfo.pubkey = event.pubkey;
+          partnerInfo.username = partnerInfo.username || "未知用户";
           partnerInfo.online = true;
           partnerName.textContent = partnerInfo.username;
-          partnerAvatar.src = partnerInfo.avatar;
-          log(`${partnerInfo.username} 已加入房间`, "system");
-        } else {
-          log("等待其他人加入...", "system");
+          partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
         }
-      }
-      return; // 系统消息处理完毕
-    }
+      } // <- 这里结束了 Array.isArray(data)
 
-    // ========== Relay 协议消息 ==========
-    if (Array.isArray(data)) {
-      // Relay 确认事件 OK
-      if (data[0] === "OK") {
-        console.log("✅ Relay 确认:", data);
-        return;
-      }
-
-      // Relay 推送的 EVENT
-      if (data[0] === "EVENT") {
-        const event = data[1];
-        if (event.kind === 1) {
-          // 只显示带 room10008 标签的消息
-          if (event.tags.some(t => t[0] === "t" && t[1] === "room10008")) {
-            // 维护 participants 列表
-            if (!participants.includes(event.pubkey)) {
-              participants.push(event.pubkey);
-              console.log("当前参与者:", participants);
-            }
-
-            // 判断身份
-            const type = (event.pubkey === window.myPubKey) ? "me" : "other";
-            const name = (type === "me") ? username : event.pubkey.slice(0, 8);
-            log(`${name}: ${event.content}`, type);
-
-            // 如果是对方，则记录对方信息
-            if (type === "other") {
-              partnerInfo.pubkey = event.pubkey;
-              partnerInfo.username = partnerInfo.username || "未知用户";
-              partnerInfo.online = true;
-              partnerName.textContent = partnerInfo.username;
-              partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
-            }
-          }
+      // ⚠️ 注意：这部分（event.tags 判断）其实是放在 Array.isArray(data) 外了
+      if (event.tags.some(t => t[0] === "t" && t[1] === "room10008")) {
+        // 维护 participants 列表
+        if (!participants.includes(event.pubkey)) {
+          participants.push(event.pubkey);
+          console.log("当前参与者:", participants);
         }
-        return;
+        // 判断身份（按先后顺序）
+        const type = (event.pubkey === window.myPubKey) ? "me" : "other";
+        log(`${name}: ${event.content}`, type);
       }
-    }
+    } // <- 这里结束了 data.system
 
-    // ========== 普通聊天消息 ==========
-    if (data.username && data.msg) {
+    if (data.join && data.username !== username) {
+      partnerInfo.username = data.username;
+      partnerInfo.avatar = data.avatar || partnerInfo.avatar;
+      partnerInfo.online = true;
+      partnerName.textContent = partnerInfo.username;
+      partnerAvatar.src = partnerInfo.avatar;
+      log(`${partnerInfo.username} 已加入房间`, "system");
+
+      if (data.join && data.username === username) {
+        log("等待其他人加入...", "system");
+      }
+    } else if (data.username && data.msg) {
       const type = data.pubkey === window.myPubKey ? "me" : "other";
       const name = data.username || "未知用户";
       log(`${name}: ${data.msg}`, type);
@@ -292,36 +288,23 @@ socket.onmessage = async (e) => {
         partnerName.textContent = partnerInfo.username;
         partnerAvatar.src = partnerInfo.avatar;
       }
-      return;
-    }
-
-    // ========== WebRTC 信令 ==========
-    if (data.type === "offer" && !isCalling) {
+    } else if (data.type === 'offer' && !isCalling) {
       window.incomingOffer = data.offer;
       partnerInfo.username = data.username;
       partnerName.textContent = partnerInfo.username;
       partnerAvatar.src = data.avatar || partnerAvatar.src;
       startCall(true); // 被叫
-      return;
-    }
-
-    if (data.type === "answer") {
+    } else if (data.type === 'answer') {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-      return;
-    }
-
-    if (data.type === "ice" && data.candidate) {
+    } else if (data.type === 'ice' && data.candidate) {
       if (peerConnection) {
         await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
       }
-      return;
     }
-
-  } catch (err) {
-    log("解析失败:", e.data, err);
+  } catch {
+    log("解析失败", e.data, err);
   }
-};
-
+}
 
 socket.onerror = () => log("❌ 连接出错", "system");
 async function send() {

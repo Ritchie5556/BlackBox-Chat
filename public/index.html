@@ -229,7 +229,19 @@ socket.onmessage = async (e) => {
         }
         // Relay 推送的 EVENT
         if(data[0] === "EVENT"){
-          const event = data[2]; // {id, pubkey, content, tags...}
+          const event = data[1];
+          if (event.kind === 1) {
+           // 用 pubkey 判断消息是自己还是对方
+            const type = data.pubkey === window.myPubKey ? "me" : "other";
+             log(`${type === "me" ? username : (partnerInfo.username || '对方')}: ${data.msg || event.content}`, type);
+             if (type === "other") {
+               partnerInfo.pubkey = event.pubkey;
+               partnerInfo.username = partnerInfo.username || "未知用户";
+               partnerInfo.online = true;
+               partnerName.textContent = partnerInfo.username;
+              partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
+            }
+         }
          // 只显示带 room1 标签的消息
          if(event.tags.some(t => t[0]==="t" && t[1]==="room10008")){
            // 维护 participants 列表
@@ -257,7 +269,7 @@ socket.onmessage = async (e) => {
       }
     } 
     else if (data.username && data.msg ) {
-      const type = data.username === username ? "me" : "other";
+      const type = data.pubkey === window.myPubKey ? "me" : "other";
       const name = data.username || "未知用户";
       log(`${name}: ${data.msg}`, type);
 

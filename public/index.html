@@ -212,37 +212,38 @@ socket.onopen = () => {
   send(joinEvent);
 };
 async function send(eventobj=null) {
- if(!eventobj){
-   const msgInput = document.getElementById("msg");
-   const msg = msgInput.value.trim();
-   if (!msg) return;
-   if(socket.readyState === WebSocket.OPEN){
-     const eventobj = {
-      pubkey: window.myPubKey,
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [["t", "room10008"]],   // 指定聊天室标签
-      content: msg
-     };
+  if(!eventobj){
+    const msgInput = document.getElementById("msg");
+    const msg = msgInput.value.trim();
+    if (!msg) return;
+    if(socket.readyState === WebSocket.OPEN){
+      const eventobj = {
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [["t", "room10008"]],
+        content: msg
+      };
 
-   // 计算 id
-   const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
-   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
-   eventobj.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-  // 签名
-   const sig = await nobleSchnorr.sign(event.id, window.myPrivKey);
-   eventobj.sig = toHex(sig);
-  // 发送
-    socket.send(JSON.stringify(["EVENT", eventobj]));
-    if(!eventObj.tags.some(t=>t[0]==="join")){
-       msgInput.value = "";
-       log(`${window.username}: ${msg}`, "me"); 
+      const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
+      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+      eventobj.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+      const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey); 
+      eventobj.sig = toHex(sig);
+
+      socket.send(JSON.stringify(["EVENT", eventobj]));
+
+      if(!eventobj.tags.some(t=>t[0]==="join")){ 
+        msgInput.value = "";
+        log(`${window.username}: ${msg}`, "me"); 
+      }
+    } else {
+      log("连接尚未建立或房间未分配", "system");
     }
-  }  else {
-    log("⚠️ 连接尚未建立或房间未分配", "system");
   }
- }
- }
+}
+
 socket.onmessage = async (e) => {
   console.log("收到:", e.data); //日志
   try {
@@ -423,7 +424,14 @@ function startCall(isIncoming=false){
 
     peerConnection.onicecandidate = e => {
       if(e.candidate){
-        socket.send(JSON.stringify({ type:'ice', candidate:e.candidate, to: partnerInfo.username }));
+        socket.send(JSON.stringify(
+          { 
+            type:'ice', 
+            candidate:e.candidate, 
+            to: partnerInfo.username 
+          }
+        )
+        );
       }
     };
 

@@ -203,7 +203,7 @@ socket.onopen = () => {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10008"], ["join","true"]],
+    tags: [["t", "room10008"], ["join","true"，username]],
     content: `${username} 加入了聊天室`
   };
   send(joinEvent);
@@ -240,6 +240,10 @@ socket.onmessage = async (e) => {
             const type = event.pubkey === window.myPubKey ? "me" : "other";
             const name = type === "me" ? username : event.pubkey.slice(0, 8);
             log(`${name}: ${event.content}`, type);
+            if (event.tags.some(t => t[0] === "join")) {
+                const joinedName = event.tags.find(t => t[0] === "join")[1] || "未知用户";
+                log(`${joinedName} 已加入房间`, "system");
+            }
           }
           return;
         }
@@ -308,7 +312,7 @@ socket.onmessage = async (e) => {
 }
 
 socket.onerror = () => log("❌ 连接出错", "system");
-async function send() {
+async function send(event) {
   const msgInput = document.getElementById("msg");
   const msg = msgInput.value.trim();
   if (!msg) return;

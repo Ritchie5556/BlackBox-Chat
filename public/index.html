@@ -357,7 +357,7 @@ socket.onmessage = async (e) => {
           participants.push({
             pubkey,
             username: joinedName,
-            avatar: "default.png",
+            avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
             lastSeen: Date.now()
           });
         }
@@ -391,8 +391,6 @@ socket.onmessage = async (e) => {
         partnerName.textContent = partnerInfo.username;
         partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
       }
-
-      alert("当前聊天室人数:", participants.length);
       return;
     }
 

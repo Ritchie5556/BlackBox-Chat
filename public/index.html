@@ -237,27 +237,33 @@ socket.onopen = () => {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10008"], ["t","true",window.username]],
+    tags: [["t", "room10008"]],
     content:`${window.username} 加入了聊天室`
   };
+  myUsersMap[window.myPubKey] = window.username; // 保存映射
   send(joinEvent);
 };
 socket.onmessage = async (e) => {
   console.log("收到:", e.data); //日志
   try {
     const data = JSON.parse(e.data);
-
+    // 系统消息
     if (data.system) {
       log(data.msg, "system");
-
       if (data.room) {
         myRoom = data.room;
         console.log("已经分配好房间了", myRoom);
       }
+      return;
+    }
 
-      if (data.join) {
-        console.log("用户加入:", data.username);
-      }
+    if (data.join) {
+      const pubkey = data.pubkey;
+      const username = data.username || `用户-${pubkey.slice(0, 8)}`;
+      myUsersMap[pubkey] = username;
+      log(`${username} 已加入房间`, "system");
+      return;
+    }
      // Relay 确认事件 OK
      if (Array.isArray(data) && data[0] === "OK") {
          console.log("Relay 确认:", data);
@@ -266,24 +272,25 @@ if(Array.isArray(data)){
   // Relay 推送的 EVENT
   if(Array.isArray(data) && data[0] === "EVENT"){
     const event = data[2];
-    if (event.kind !== 1) {
-    // 加入事件
-      const joinTag = event.tags.find(t => t[0] === "t");
-      const joinedName = joinTag[2] || "未知用户";
-      console.log("event.tags:", event.tags);
-      log(`${joinedName} 已加入房间`, "system");
-
-      if (data.join) {
-         const joinedName = myUsersMap[data.pubkey] || "未知用户";
-         log(`${joinedName} 已加入房间`, "system"); 
+      // 如果是新 pubkey，尝试从 content 提取用户名
+      if (!myUsersMap[event.pubkey]) {
+        const match = event.content.match(/^(.+) 加入了聊天室$/);
+        if (match) {
+          myUsersMap[event.pubkey] = match[1];
+        }
       }
- 
+
+      // 显示加入房间事件
+      if (event.content.includes("加入了聊天室")) {
+        const joinedName = myUsersMap[event.pubkey] || "未知用户";
+        log(`${joinedName} 已加入房间`, "system");
+        return; // 避免重复显示普通消息
+      }
    // 普通消息
       const type = event.pubkey === window.myPubKey ? "me" : "other";
       const name = type === "me" ? window.username : event.pubkey.slice(0, 8);
       log(`${name}: ${event.content}`, type);
       return;
-    }
   }
 }
 // system 消息（非 Array）
@@ -310,7 +317,6 @@ if(Array.isArray(data)){
         const type = (event.pubkey === window.myPubKey) ? "me" : "other";
         log(`${name}: ${event.content}`, type);
       }
-    } // <- 这里结束了 data.system
 
     if (data.join && data.username !== window.username) {
       partnerInfo.username = data.username;

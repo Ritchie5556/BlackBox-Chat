@@ -116,23 +116,19 @@
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
 <script type="module">
-import { secp256k1 } from "https://esm.sh/@noble/curves@1.8.1/secp256k1?target=es2020";
+import * as secp from "https://cdn.jsdelivr.net/npm/@noble/curves@1.8.1/secp256k1.js";
 
-// 生成 Schnorr 密钥对
-const privKey = secp256k1.utils.randomPrivateKey();
-const pubKeyBytes = await secp256k1.schnorr.getPublicKey(privKey);
+window.nobleSchnorr = secp.schnorr;
 
-// 转成 hex 字符串（浏览器没有 Buffer）
-const pubKeyHex = Array.from(pubKeyBytes).map(b => b.toString(16).padStart(2,'0')).join('');
+// 启动时生成一对密钥
+const privKeyBytes = secp.utils.randomPrivateKey();
+window.myPrivKey = privKeyBytes;
 
-console.log("私钥:", privKey);
-console.log("公钥:", pubKeyHex);
+const pubKeyBytes = await secp.schnorr.getPublicKey(privKeyBytes);
+window.myPubKey = Buffer.from(pubKeyBytes).toString("hex");
+</script>
 
-// 如果需要全局使用
-window.myPrivKey = privKey;
-window.myPubKey = pubKeyHex;
-window.nobleSchnorr = secp256k1.schnorr;
-
+<script>
 let username = prompt("请输入你的昵称");
 while (!username || username.trim() === "") {
     username = prompt("昵称不能为空，请输入你的昵称");

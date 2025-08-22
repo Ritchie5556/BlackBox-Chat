@@ -266,15 +266,19 @@ if(Array.isArray(data)){
   if(data[0] === "EVENT"){
     const event = data[2];
     if (event.kind === 1) {
-      // 用 pubkey 判断消息是自己还是对方
       const type = event.pubkey === window.myPubKey ? "me" : "other";
       const name = type === "me" ? window.username : event.pubkey.slice(0, 8);
+    // 普通消息
+    if (!event.tags.some(t => t[0] === "join")) {
       log(`${name}: ${event.content}`, type);
-      if (event.tags.some(t => t[0] === "join")) {
-        const joinedName = event.tags.find(t => t[0] === "join")[2] || "未知用户";
-        log(`${joinedName} 已加入房间`, "system");
-      }
     }
+    // 加入事件
+    const joinTag = event.tags.find(t => t[0] === "join");
+    if (joinTag) {
+      const joinedName = joinTag[2] || "未知用户";
+      log(`${joinedName} 已加入房间`, "system");
+    }
+   }
   }
   return;
 }

@@ -118,11 +118,15 @@
 <script src="https://cdn.jsdelivr.net/npm/@noble/curves@1.8.1/secp256k1/dist/umd/index.min.js"></script>
 <script>
 window.nobleSchnorr = secp256k1.schnorr;
-// 启动时生成一对密钥
-const privKeyBytes = secp.utils.randomPrivateKey();
+// 浏览器环境生成密钥
+const privKeyBytes = secp256k1.utils.randomPrivateKey();
 window.myPrivKey = privKeyBytes;
-const pubKeyBytes = secp.schnorr.getPublicKey(privKeyBytes);
-window.myPubKey = Buffer.from(pubKeyBytes).toString("hex");
+async function initPubKey() {
+    const pubKeyBytes = await secp256k1.schnorr.getPublicKey(privKeyBytes);
+    // 浏览器用 ArrayBuffer -> hex
+    window.myPubKey = Array.from(pubKeyBytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+initPubKey();
 </script>
 
 <script>

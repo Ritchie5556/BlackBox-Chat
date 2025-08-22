@@ -268,10 +268,9 @@ if(Array.isArray(data)){
     if (event.kind !== 1) {
     // 加入事件
       const joinTag = event.tags.find(t => t[0] === "join");
-      if (joinTag) {
-        const joinedName = joinTag[2] || "未知用户";
-        log(`${joinedName} 已加入房间`, "system");
-     }
+      const joinedName = joinTag[2] || "未知用户";
+      console.log("event.tags:", event.tags);
+      log(`${joinedName} 已加入房间`, "system");
    // 普通消息
       const type = event.pubkey === window.myPubKey ? "me" : "other";
       const name = type === "me" ? window.username : event.pubkey.slice(0, 8);
@@ -351,7 +350,7 @@ socket.onerror = () => log("❌ 连接出错", "system");
 
 function log(message, type="other"){
   const logDiv = document.getElementById("log");
-  if(!logDiv) return; // 防止 logDiv 未找到报错
+  if(!logDiv) return; 
   const msgDiv = document.createElement("div");
   msgDiv.className = `msg ${type}`;
   msgDiv.textContent = message;

@@ -316,124 +316,120 @@ socket.onopen = () => {
 socket.onmessage = async (e) => {
   try {
     const data = JSON.parse(e.data);
-     console.log("收到:", e.data); //日志
-     // 处理 OK 消息
-    if (Array.isArray(data) && data[0] === "OK") {
-      console.log("Relay确认:", data);
-      return;
+    console.log("收到:", e.data);
+
+    // 1. Relay 确认/结束消息
+    if (Array.isArray(data)) {
+      if (data[0] === "OK") {
+        console.log("Relay确认:", data);
+        return;
+      }
+      if (data[0] === "EOSE") {
+        console.log("EOSE 收到:", data[1]);
+        return;
+      }
     }
-    // 忽略 EOSE
-    if (Array.isArray(data) && data[0] === "EOSE") {
-      console.log("EOSE 收到:", data[1]);
-      return;
-    }
-  // Relay 推送的 EVENT
-  if(Array.isArray(data) && data[0] === "EVENT"){
-    const event = data[2];
-     if(!event) return;
-      // 如果是新 pubkey，尝试从 content 提取用户名
-      if (!myUsersMap[event.pubkey]) {
+
+    // 2. Relay 推送的 EVENT
+    if (Array.isArray(data) && data[0] === "EVENT") {
+      const event = data[2];
+      if (!event) return;
+
+      const pubkey = event.pubkey;
+      const isMe = pubkey === window.myPubKey;
+      const username = isMe ? window.username : (myUsersMap[pubkey] || pubkey.slice(0, 8));
+
+      // 如果是新用户，尝试从 content 里提取用户名
+      if (!myUsersMap[pubkey]) {
         const match = event.content.match(/^(.+) 加入了聊天室$/);
         if (match) {
-          myUsersMap[event.pubkey] = match[1];
+          myUsersMap[pubkey] = match[1];
         }
       }
 
-      // 显示加入房间事件
+      // 加入房间提示
       if (event.content.includes("加入了聊天室")) {
-        const joinedName = myUsersMap[event.pubkey] || "未知用户";
+        const joinedName = myUsersMap[pubkey] || "未知用户";
         log(`${joinedName} 已加入房间`, "system");
-        return; // 避免重复显示普通消息
+
+        // 把用户加入 participants
+        if (!participants.find(p => p.pubkey === pubkey)) {
+          participants.push({
+            pubkey,
+            username: joinedName,
+            avatar: "default.png",
+            lastSeen: Date.now()
+          });
+        }
+        console.log("当前聊天室人数:", participants.length);
+        return;
       }
-   // 普通消息
-      const type = event.pubkey === window.myPubKey ? "me" : "other";
-      const name = type === "me" ? window.username : event.pubkey.slice(0, 8);
-      log(`${event.content}`, type);
-      return;
-  }
-// system 消息（非 Array）
-    if (data.system) {
-         log(data.msg, "system");
-         return;
-     }
-    if (type === "other") {
-              // 检查是否已经在 participants 里
-      if (!participants.find(p => p.pubkey === pubkey)) {
-           participants.push({
-           pubkey,
-           username: event.username || "未知用户",
-           avatar: event.avatar || "default.png",
-           lastSeen: Date.now(),
+
+      // 普通消息
+      log(`${event.content}`, isMe ? "me" : "other");
+
+      // 更新 participants 活跃时间
+      let user = participants.find(p => p.pubkey === pubkey);
+      if (!user) {
+        participants.push({
+          pubkey,
+          username,
+          avatar: "default.png",
+          lastSeen: Date.now()
         });
       } else {
-         // 更新活跃时间
-         const user = participants.find(p => p.pubkey === pubkey);
-         if (user) user.lastSeen = Date.now();
-    }
-          partnerInfo.pubkey = event.pubkey;
-          partnerInfo.username = partnerInfo.username || "未知用户";
-          partnerInfo.online = true;
-          partnerName.textContent = partnerInfo.username;
-          partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
-          console.log("当前聊天室人数:", participants.length);
-        }
-      if (event.tags.some(t => t[0] === "t" && t[1] === "room10008")) {
-        // 维护 participants 列表
-        if (!participants.includes(event.pubkey)) {
-          participants.push(event.pubkey);
-          console.log("当前参与者:", participants);
-        }
-        // 判断身份（按先后顺序）
-        const type = (event.pubkey === window.myPubKey) ? "me" : "other";
-        log(`${event.content}`, type);
+        user.lastSeen = Date.now();
       }
 
-    if (data.join && data.username !== window.username) {
-      partnerInfo.username = data.username;
-      partnerInfo.avatar = data.avatar || partnerInfo.avatar;
-      partnerInfo.online = true;
-      partnerName.textContent = partnerInfo.username;
-      partnerAvatar.src = partnerInfo.avatar;
-      log(`${partnerInfo.username} 已加入房间`, "system");
-
-      if (data.join && data.username === window.username) {
-        log("等待其他人加入...", "system");
-      }
-    } else if (data.username && data.msg) {
-      const type = data.pubkey === window.myPubKey ? "me" : "other";
-      const name = data.username || "未知用户";
-      log(`${name}: ${data.msg}`, type);
-      if (type === "other") {
-          partnerInfo.pubkey = event.pubkey;
-          partnerInfo.username = partnerInfo.username || "未知用户";
-          partnerInfo.online = true;
-          partnerName.textContent = partnerInfo.username;
-          partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
-      }
-      if (data.username !== window.username) {
-        partnerInfo.username = data.username;
-        partnerInfo.avatar = data.avatar || partnerAvatar.src;
+      // 更新 partnerInfo（只更新别人）
+      if (!isMe) {
+        partnerInfo.pubkey = pubkey;
+        partnerInfo.username = username;
+        partnerInfo.avatar = user.avatar;
         partnerInfo.online = true;
+
         partnerName.textContent = partnerInfo.username;
-        partnerAvatar.src = partnerInfo.avatar;
+        partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
       }
-    } else if (data.type === 'offer' && !isCalling) {
+
+      alert("当前聊天室人数:", participants.length);
+      return;
+    }
+
+    // 3. 系统消息（非数组）
+    if (data.system) {
+      log(data.msg, "system");
+      return;
+    }
+
+    // 4. 信令消息（通话用）
+    if (data.type === 'offer' && !isCalling) {
       window.incomingOffer = data.offer;
       partnerInfo.username = data.username;
       partnerName.textContent = partnerInfo.username;
       partnerAvatar.src = data.avatar || partnerAvatar.src;
       startCall(true); // 被叫
-    } else if (data.type === 'answer') {
+      return;
+    }
+
+    if (data.type === 'answer') {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-    } else if (data.type === 'ice' && data.candidate) {
+      return;
+    }
+
+    if (data.type === 'ice' && data.candidate) {
       if (peerConnection) {
         await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
       }
+      return;
     }
-  } catch(err) {
+
+  } catch (err) {
     console.error("解析失败", e.data, err);
     log("解析失败: " + e.data, "system");
   }
+};
+
 socket.onerror = () => log("❌ 连接出错", "system");
 }  
   

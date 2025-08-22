@@ -115,10 +115,9 @@
   <button id="emojiBtn" onclick="toggleEmojiPanel()">😊</button>
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
-<script type="module">
-import * as secp from "https://cdn.jsdelivr.net/npm/@noble/curves@1.8.1/secp256k1.js";
-window.nobleSchnorr = secp.schnorr;
-
+<script src="https://cdn.jsdelivr.net/npm/@noble/curves@1.8.1/secp256k1/dist/umd/index.min.js"></script>
+<script>
+window.nobleSchnorr = secp256k1.schnorr;
 // 启动时生成一对密钥
 const privKeyBytes = secp.utils.randomPrivateKey();
 window.myPrivKey = privKeyBytes;

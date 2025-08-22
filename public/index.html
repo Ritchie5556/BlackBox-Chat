@@ -220,10 +220,18 @@ function setPartnerStatus(state){
   const circle = document.getElementById("statusCircle");
   const text = document.getElementById("statusText");
   circle.className = "status-circle " + state;
-  if(state === "online") text.textContent = "在线";partnerInfo.online=true;
-  if(state === "offline") text.textContent = "离线";partnerInfo.online=false;
-  if(state === "busy") text.textContent = "繁忙";partnerInfo.online=true;
-    partnerInfo.state = state;
+  if(state === "online") {
+    text.textContent = "在线";
+    partnerInfo.online = true;
+  } else if(state === "offline") {
+    text.textContent = "离线";
+    partnerInfo.online = false;
+  } else if(state === "busy") {
+    text.textContent = "繁忙";
+    partnerInfo.online = true; 
+  }
+  partnerInfo.state = state;
+  console.log("partnerInfo:", partnerInfo); 
 }
 // -------------------- 表情包 --------------------
 fetch('other/emojis.json')
@@ -457,7 +465,10 @@ function startCall(isIncoming=false){
     return;
   }
   alert(partnerInfo.online)
-  if(partnerInfo.online){ alert("对方不在线，无法通话"); return; }
+  if(!partnerInfo.online){ 
+     alert("对方不在线，无法通话"); 
+     return; 
+  }
   isCalling = true;
 
   const callOverlay = document.createElement('div');

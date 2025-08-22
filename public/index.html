@@ -1,3 +1,4 @@
+您说：
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -140,14 +141,14 @@
  function toHex(bytes) {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
+window.username = "";   
 window.onload = () => {
-  let username = "";
+  let name = "";
   do {
-    username = prompt("请输入你的昵称（必填）");
-  } while(!username || username.trim() === "");
-  window.username = username;
+    name = prompt("请输入你的昵称:");
+  } while(!name || name.trim() === "");
+  window.username = name;  
 };
-
 const partnerAvatar = document.getElementById("partnerAvatar");
 const partnerName = document.getElementById("partnerName");
 const logDiv = document.getElementById("log");
@@ -156,7 +157,6 @@ const socket = new WebSocket("wss://relay.damus.io");
 let myRoom = null;
 let partnerInfo = { username: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
 let emojis = [];
-
 // -------------------- 表情包 --------------------
 fetch('other/emojis.json')
   .then(res => res.json())
@@ -182,7 +182,38 @@ function insertEmoji(symbol){
   msgInput.value += symbol;
   msgInput.focus();
 }
+async function send(eventobj=null) {
+ if(!eventobj){
+   const msgInput = document.getElementById("msg");
+   const msg = msgInput.value.trim();
+   if (!msg) return;
+   if(socket.readyState === WebSocket.OPEN){
+   const eventobj = {
+    pubkey: window.myPubKey,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 1,
+    tags: [["t", "room10008"]],   // 指定聊天室标签
+    content: msg
+    };
 
+   // 计算 id
+   const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
+   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+   eventobj.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+  // 签名
+   const sig = await nobleSchnorr.sign(event.id, window.myPrivKey);
+   eventobj.sig = toHex(sig);
+  // 发送
+    socket.send(JSON.stringify(["EVENT", eventobj]));
+    if(!eventObj.tags.some(t=>t[0]==="join")){
+      document.getElementById("msg").value = "";
+       log(`${window.username}: ${msg}`, "me"); 
+    }
+  }  else {
+    log("⚠️ 连接尚未建立或房间未分配", "system");
+  }
+ }
+ }
 // -------------------- 聊天功能 --------------------
 let participants = [];
 socket.onopen = () => {
@@ -207,11 +238,10 @@ socket.onopen = () => {
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
     tags: [["t", "room10008"], ["join","true",username]],
-    content: `${username} 加入了聊天室`
+    content: ${username} 加入了聊天室
   };
   send(joinEvent);
 };
-
 socket.onmessage = async (e) => {
   console.log("收到:", e.data); //日志
   try {
@@ -240,10 +270,10 @@ socket.onmessage = async (e) => {
           // 用 pubkey 判断消息是自己还是对方
             const type = event.pubkey === window.myPubKey ? "me" : "other";
             const name = type === "me" ? username : event.pubkey.slice(0, 8);
-            log(`${name}: ${event.content}`, type);
+            log(${name}: ${event.content}, type);
             if (event.tags.some(t => t[0] === "join")) {
                 const joinedName = event.tags.find(t => t[0] === "join")[1] || "未知用户";
-                log(`${joinedName} 已加入房间`, "system");
+                log(${joinedName} 已加入房间, "system");
             }
           }
         }
@@ -266,7 +296,7 @@ socket.onmessage = async (e) => {
         }
         // 判断身份（按先后顺序）
         const type = (event.pubkey === window.myPubKey) ? "me" : "other";
-        log(`${name}: ${event.content}`, type);
+        log(${name}: ${event.content}, type);
       }
     } // <- 这里结束了 data.system
 
@@ -276,7 +306,7 @@ socket.onmessage = async (e) => {
       partnerInfo.online = true;
       partnerName.textContent = partnerInfo.username;
       partnerAvatar.src = partnerInfo.avatar;
-      log(`${partnerInfo.username} 已加入房间`, "system");
+      log(${partnerInfo.username} 已加入房间, "system");
 
       if (data.join && data.username === username) {
         log("等待其他人加入...", "system");
@@ -284,7 +314,7 @@ socket.onmessage = async (e) => {
     } else if (data.username && data.msg) {
       const type = data.pubkey === window.myPubKey ? "me" : "other";
       const name = data.username || "未知用户";
-      log(`${name}: ${data.msg}`, type);
+      log(${name}: ${data.msg}, type);
 
       if (data.username !== username) {
         partnerInfo.username = data.username;
@@ -311,37 +341,6 @@ socket.onmessage = async (e) => {
     log("解析失败: " + e.data, "system");
   }
 socket.onerror = () => log("❌ 连接出错", "system");
-async function send(eventobj=null) {
- if(!eventobj){
-   const msgInput = document.getElementById("msg");
-   const msg = msgInput.value.trim();
-   if (!msg) return;
-   if(socket.readyState === WebSocket.OPEN){
-   const eventobj = {
-    pubkey: window.myPubKey,
-    created_at: Math.floor(Date.now() / 1000),
-    kind: 1,
-    tags: [["t", "room10008"]],   // 指定聊天室标签
-    content: msg
-    };
-
-   // 计算 id
-   const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
-   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
-   eventobj.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-  // 签名
-   const sig = await nobleSchnorr.sign(event.id, window.myPrivKey);
-   eventobj.sig = toHex(sig);
-  // 发送
-    socket.send(JSON.stringify(["EVENT", eventobj]));
-    if(!eventObj.tags.some(t=>t[0]==="join")){
-      document.getElementById("msg").value = "";
-    }
-  }  else {
-    log("⚠️ 连接尚未建立或房间未分配", "system");
-  }
- }
- }
 }  
   
 
@@ -349,7 +348,7 @@ function log(message, type="other"){
   const logDiv = document.getElementById("log");
   if(!logDiv) return; // 防止 logDiv 未找到报错
   const msgDiv = document.createElement("div");
-  msgDiv.className = `msg ${type}`;
+  msgDiv.className = msg ${type};
   msgDiv.textContent = message;
   logDiv.appendChild(msgDiv);
   logDiv.scrollTop = logDiv.scrollHeight;
@@ -375,7 +374,7 @@ function startCall(isIncoming=false){
 
   const status = document.createElement('div');
   status.id = 'callStatus';
-  status.innerText = isIncoming ? `${partnerInfo.username} 来电` : '正在等待对方接听...';
+  status.innerText = isIncoming ? ${partnerInfo.username} 来电 : '正在等待对方接听...';
   Object.assign(status.style,{marginBottom:'20px',color:'#fff',fontSize:'20px'});
   callOverlay.appendChild(status);
 

@@ -431,8 +431,6 @@ socket.onmessage = async (e) => {
 };
 
 socket.onerror = () => log("❌ 连接出错", "system");
-}  
-  
 
 function log(message, type="other"){
   const logDiv = document.getElementById("log");

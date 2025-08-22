@@ -156,6 +156,7 @@ const socket = new WebSocket("wss://relay.damus.io");
 let myRoom = null;
 let partnerInfo = { username: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
 let emojis = [];
+const myUsersMap = {}; // pubkey → 用户名映射
 // -------------------- 表情包 --------------------
 fetch('other/emojis.json')
   .then(res => res.json())
@@ -271,6 +272,12 @@ if(Array.isArray(data)){
       const joinedName = joinTag[2] || "未知用户";
       console.log("event.tags:", event.tags);
       log(`${joinedName} 已加入房间`, "system");
+
+      if (data.join) {
+         const joinedName = myUsersMap[data.pubkey] || "未知用户";
+         log(`${joinedName} 已加入房间`, "system"); 
+      }
+ 
    // 普通消息
       const type = event.pubkey === window.myPubKey ? "me" : "other";
       const name = type === "me" ? window.username : event.pubkey.slice(0, 8);

@@ -286,6 +286,7 @@ async function send(eventobj=null) {
 let participants = [];
 socket.onopen = () => {
   log("✅ 已连接Relay网络聊天室", "system");
+  setPartnerStatus("online")//加入聊天室后，默认在线状态
   document.getElementById("sendBtn").disabled = false;
   //socket.send(JSON.stringify({ system: true, join: true, username, avatar: "", requestRoom: true }));
   socket.send(

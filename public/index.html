@@ -244,35 +244,19 @@ socket.onopen = () => {
   send(joinEvent);
 };
 socket.onmessage = async (e) => {
-  console.log("收到:", e.data); //日志
   try {
     const data = JSON.parse(e.data);
+     console.log("收到:", e.data); //日志
+     // 处理 OK 消息
+    if (Array.isArray(data) && data[0] === "OK") {
+      console.log("Relay确认:", data);
+      return;
+    }
     // 忽略 EOSE
     if (Array.isArray(data) && data[0] === "EOSE") {
       console.log("EOSE 收到:", data[1]);
       return;
     }
-    // 系统消息
-    if (data.system) {
-      log(data.msg, "system");
-      if (data.room) {
-        myRoom = data.room;
-        console.log("已经分配好房间了", myRoom);
-      }
-      return;
-    }
-
-    if (data.join) {
-      const pubkey = data.pubkey;
-      const username = data.username || `用户-${pubkey.slice(0, 8)}`;
-      myUsersMap[pubkey] = username;
-      log(`${username} 已加入房间`, "system");
-      return;
-    }
-     // Relay 确认事件 OK
-     if (Array.isArray(data) && data[0] === "OK") {
-         console.log("Relay 确认:", data);
-      }   
   // Relay 推送的 EVENT
   if(Array.isArray(data) && data[0] === "EVENT"){
     const event = data[2];

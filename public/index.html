@@ -237,7 +237,7 @@ socket.onopen = () => {
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
     tags: [["t", "room10008"], ["join","true",window.username]],
-    content: ${window.username}
+    content:`${window.username} 加入了聊天室`
   };
   send(joinEvent);
 };

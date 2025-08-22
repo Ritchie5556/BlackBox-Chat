@@ -268,7 +268,6 @@ socket.onmessage = async (e) => {
      if (Array.isArray(data) && data[0] === "OK") {
          console.log("Relay 确认:", data);
       }   
-if(Array.isArray(data)){ 
   // Relay 推送的 EVENT
   if(Array.isArray(data) && data[0] === "EVENT"){
     const event = data[2];
@@ -292,7 +291,6 @@ if(Array.isArray(data)){
       log(`${name}: ${event.content}`, type);
       return;
   }
-}
 // system 消息（非 Array）
     if (data.system) {
          log(data.msg, "system");

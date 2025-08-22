@@ -356,12 +356,26 @@ socket.onmessage = async (e) => {
          log(data.msg, "system");
          return;
      }
-        if (type === "other") {
+    if (type === "other") {
+              // 检查是否已经在 participants 里
+      if (!participants.find(p => p.pubkey === pubkey)) {
+           participants.push({
+           pubkey,
+           username: event.username || "未知用户",
+           avatar: event.avatar || "default.png",
+           lastSeen: Date.now(),
+        });
+      } else {
+         // 更新活跃时间
+         const user = participants.find(p => p.pubkey === pubkey);
+         if (user) user.lastSeen = Date.now();
+    }
           partnerInfo.pubkey = event.pubkey;
           partnerInfo.username = partnerInfo.username || "未知用户";
           partnerInfo.online = true;
           partnerName.textContent = partnerInfo.username;
           partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
+          console.log("当前聊天室人数:", participants.length);
         }
       if (event.tags.some(t => t[0] === "t" && t[1] === "room10008")) {
         // 维护 participants 列表

@@ -122,7 +122,7 @@ const nobleSchnorr = secp256k1.schnorr;
 
 // 生成密钥对
 const privKeyBytes = secp256k1.utils.randomPrivateKey();
-const pubKeyBytes = await nobleSchnorr.getPublicKey(privKeyBytes);
+const pubKeyBytes = nobleSchnorr.getPublicKey(privKeyBytes);
 
 // 浏览器没有 Buffer，转成 hex
 const myPubKey = Array.from(pubKeyBytes).map(b => b.toString(16).padStart(2,'0')).join('');

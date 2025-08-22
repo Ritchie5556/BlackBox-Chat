@@ -95,6 +95,31 @@
     background: none;
     cursor: pointer;
   }
+  <style>
+  /* 状态样式 */
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    color: #fff;
+  }
+  .status-circle {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    animation: breathe 2s infinite ease-in-out;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.6; }
+  }
+
+  /* 根据不同状态动态修改颜色和动画时间 */
+  .online { background: green; animation-duration: 2s; }
+  .offline { background: gray; animation-duration: 10s; }
+  .busy { background: yellow; animation-duration: 15s; }
 </style>
 </head>
 <body>
@@ -104,6 +129,10 @@
   <div class="top-center">
     <img id="partnerAvatar" src="/image/f64be2438709ee1f11ad8754e282b1df.jpeg" alt="对方头像">
     <span id="partnerName">未知用户</span>
+    <div id="partnerStatus" class="status">
+      <div id="statusCircle" class="status-circle offline"></div>
+      <span id="statusText">离线</span>
+  </div>
   </div>
   <button onclick="startCall()">📞</button>
 </div>
@@ -115,6 +144,18 @@
   <button id="emojiBtn" onclick="toggleEmojiPanel()">😊</button>
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
+<script>
+function setPartnerStatus(state){
+  const circle = document.getElementById("statusCircle");
+  const text = document.getElementById("statusText");
+  circle.className = "status-circle " + state;
+  if(state === "online") text.textContent = "在线";
+  if(state === "offline") text.textContent = "离线";
+  if(state === "busy") text.textContent = "繁忙";
+    partnerInfo.state = state;
+}
+  
+</script> 
 <script type="module">
   import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
   import { sha256 } from "https://esm.sh/@noble/hashes/sha256";
@@ -132,8 +173,35 @@
   window.myPrivKey = priv;
   window.myPubKey = toHex(pub);
   window.nobleSchnorr = schnorr;
-
   console.log("pubkey:", window.myPubKey);
+  // === 生成凭证 ===
+async function generateCredential() {
+  const now = Math.floor(Date.now() / 1000); // 秒级时间戳
+  const expireAt = now + 7 * 24 * 60 * 60; // +7天
+
+  const payload = {
+    pubkey: window.myPubKey,
+    issuedAt: now,
+    expireAt: expireAt
+  };
+
+  // 对 payload 做哈希
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+  const id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+  // 用 schnorr 签名
+  const sig = await schnorr.sign(id, window.myPrivKey);
+
+  const credential = {
+    ...payload,
+    id,
+    sig: toHex(sig)
+  };
+
+  window.credential = credential; // 挂到全局
+  console.log("凭证生成:", credential);
+}
+generateCredential();
 </script>
 
 <script>
@@ -363,6 +431,12 @@ const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 function startCall(isIncoming=false){
   if(isCalling) return;
+  const now=Math.floor(Date.now()/1000)//时间
+  if (!window.credential || now > window.credential.expireAt) {
+    alert("凭证已过期，请重新进入聊天室");
+    return;
+  }
+
   if(!partnerInfo.online){ alert("对方不在线，无法通话"); return; }
   isCalling = true;
 

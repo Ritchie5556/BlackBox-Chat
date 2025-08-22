@@ -115,23 +115,22 @@
   <button id="emojiBtn" onclick="toggleEmojiPanel()">😊</button>
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@noble/curves@1.8.1/secp256k1/dist/umd/index.min.js"></script>
-<script>
-window.nobleSchnorr = secp256k1.schnorr;
-// 浏览器环境生成密钥
-const privKeyBytes = secp256k1.utils.randomPrivateKey();
+<script type="module">
+import * as secp from "https://cdn.jsdelivr.net/npm/@noble/curves@1.8.1/secp256k1.js";
+
+window.nobleSchnorr = secp.schnorr;
+
+// 启动时生成一对密钥
+const privKeyBytes = secp.utils.randomPrivateKey();
 window.myPrivKey = privKeyBytes;
-async function initPubKey() {
-    const pubKeyBytes = await secp256k1.schnorr.getPublicKey(privKeyBytes);
-    // 浏览器用 ArrayBuffer -> hex
-    window.myPubKey = Array.from(pubKeyBytes).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-initPubKey();
+
+const pubKeyBytes = await secp.schnorr.getPublicKey(privKeyBytes);
+window.myPubKey = Buffer.from(pubKeyBytes).toString("hex");
 </script>
 
 <script>
 let username = prompt("请输入你的昵称");
-while(!username || username.trim() === "") {
+while (!username || username.trim() === "") {
     username = prompt("昵称不能为空，请输入你的昵称");
 }
 
@@ -139,7 +138,7 @@ const partnerAvatar = document.getElementById("partnerAvatar");
 const partnerName = document.getElementById("partnerName");
 const logDiv = document.getElementById("log");
 
-const socket = new WebSocket("wss://relay.damus.io");
+const socket = new WebSocket("wss://blackbox-chat.onrender.com");
 let myRoom = null;
 let partnerInfo = {
     username: "未知用户",
@@ -151,12 +150,12 @@ let emojis = [];
 
 // -------------------- 表情包 --------------------
 fetch('other/emojis.json')
-.then(res => res.json())
-.then(data => emojis = data);
+    .then(res => res.json())
+    .then(data => emojis = data);
 
-function toggleEmojiPanel(){
+function toggleEmojiPanel() {
     let panel = document.getElementById('emojiPanel');
-    if(panel) {
+    if (panel) {
         panel.remove();
         return;
     }
@@ -171,7 +170,7 @@ function toggleEmojiPanel(){
     document.querySelector('.input-area').appendChild(panel);
 }
 
-function insertEmoji(symbol){
+function insertEmoji(symbol) {
     const msgInput = document.getElementById("msg");
     msgInput.value += symbol;
     msgInput.focus();
@@ -196,14 +195,8 @@ socket.onmessage = async (e) => {
 
         if (data.system) {
             log(data.msg, "system");
-            if (data.room) myRoom = data.room;
 
-            if (Array.isArray(msg) && msg[0] === "EVENT") {
-                const event = msg[1];
-                if (event.kind === 1) {
-                    log(`${event.pubkey.slice(0,8)}: ${event.content}`, "other");
-                }
-            }
+            if (data.room) myRoom = data.room;
 
             if (data.join && data.username !== username) {
                 partnerInfo.username = data.username;
@@ -231,19 +224,20 @@ socket.onmessage = async (e) => {
                 partnerAvatar.src = partnerInfo.avatar;
             }
 
-        } else if(data.type === 'offer' && !isCalling){
+        } else if (data.type === 'offer' && !isCalling) {
             window.incomingOffer = data.offer;
             partnerInfo.username = data.username;
             partnerName.textContent = partnerInfo.username;
             partnerAvatar.src = data.avatar || partnerAvatar.src;
             startCall(true); // 被叫
 
-        } else if(data.type === 'answer'){
+        } else if (data.type === 'answer') {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
 
-        } else if(data.type === 'ice' && data.candidate){
-            if(peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } else if (data.type === 'ice' && data.candidate) {
+            if (peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
+
     } catch {
         log(e.data, "other");
     }
@@ -256,11 +250,11 @@ async function send() {
     const msg = msgInput.value.trim();
     if (!msg) return;
 
-    if(socket.readyState === WebSocket.OPEN && myRoom && partnerInfo.online){
+    if (socket.readyState === WebSocket.OPEN && myRoom && partnerInfo.online) {
         const data = { username, msg, avatar: "", room: myRoom };
         socket.send(JSON.stringify(data));
         msgInput.value = "";
-    } else if(!partnerInfo.online){
+    } else if (!partnerInfo.online) {
         log("⚠️ 当前没有在线用户，等待其他人加入...", "system");
     } else {
         log("⚠️ 连接尚未建立或房间未分配", "system");
@@ -289,7 +283,7 @@ async function send() {
     msgInput.value = "";
 }
 
-function log(message, type="other"){
+function log(message, type = "other") {
     const msgDiv = document.createElement("div");
     msgDiv.className = `msg ${type}`;
     msgDiv.textContent = message;
@@ -301,35 +295,36 @@ function log(message, type="other"){
 let localStream, peerConnection, isCalling = false;
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-function startCall(isIncoming=false){
-    if(isCalling) return;
-    if(!partnerInfo.online){
+function startCall(isIncoming = false) {
+    if (isCalling) return;
+    if (!partnerInfo.online) {
         alert("对方不在线，无法通话");
         return;
     }
+
     isCalling = true;
 
     const callOverlay = document.createElement('div');
     callOverlay.id = 'callOverlay';
-    Object.assign(callOverlay.style,{
-        position:'fixed',
-        top:0,
-        left:0,
-        width:'100%',
-        height:'100%',
-        background:'rgba(255,255,255,0.2)',
-        backdropFilter:'blur(10px)',
-        display:'flex',
-        flexDirection:'column',
-        justifyContent:'center',
-        alignItems:'center',
-        zIndex:9999
+    Object.assign(callOverlay.style, {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        background: 'rgba(255,255,255,0.2)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999
     });
 
     const status = document.createElement('div');
     status.id = 'callStatus';
     status.innerText = isIncoming ? `${partnerInfo.username} 来电` : '正在等待对方接听...';
-    Object.assign(status.style,{marginBottom:'20px', color:'#fff', fontSize:'20px'});
+    Object.assign(status.style, { marginBottom: '20px', color: '#fff', fontSize: '20px' });
     callOverlay.appendChild(status);
 
     const audio = document.createElement('audio');
@@ -340,18 +335,18 @@ function startCall(isIncoming=false){
 
     const hangupBtn = document.createElement('button');
     hangupBtn.innerText = '📞挂断';
-    Object.assign(hangupBtn.style,{background:'red', color:'#fff', marginRight:'20px', padding:'10px 20px'});
+    Object.assign(hangupBtn.style, { background: 'red', color: '#fff', marginRight: '20px', padding: '10px 20px' });
     hangupBtn.onclick = () => endCall(true);
 
     const acceptBtn = document.createElement('button');
     acceptBtn.innerText = '📞接听';
-    Object.assign(acceptBtn.style,{background:'green', color:'#fff', padding:'10px 20px'});
+    Object.assign(acceptBtn.style, { background: 'green', color: '#fff', padding: '10px 20px' });
     acceptBtn.onclick = acceptCall;
 
     const btnContainer = document.createElement('div');
     btnContainer.style.display = 'flex';
     btnContainer.style.gap = '20px';
-    if(isIncoming) btnContainer.appendChild(acceptBtn);
+    if (isIncoming) btnContainer.appendChild(acceptBtn);
     btnContainer.appendChild(hangupBtn);
     callOverlay.appendChild(btnContainer);
 
@@ -364,7 +359,7 @@ function startCall(isIncoming=false){
 
         peerConnection.ontrack = e => {
             let remoteAudio = document.getElementById('remoteAudio');
-            if(!remoteAudio){
+            if (!remoteAudio) {
                 remoteAudio = document.createElement('audio');
                 remoteAudio.id = 'remoteAudio';
                 remoteAudio.autoplay = true;
@@ -374,41 +369,40 @@ function startCall(isIncoming=false){
         };
 
         peerConnection.onicecandidate = e => {
-            if(e.candidate){
-                socket.send(JSON.stringify({ type:'ice', candidate:e.candidate, to: partnerInfo.username }));
+            if (e.candidate) {
+                socket.send(JSON.stringify({ type: 'ice', candidate: e.candidate, to: partnerInfo.username }));
             }
         };
 
-        if(!isIncoming){
+        if (!isIncoming) {
             peerConnection.createOffer().then(offer => {
                 peerConnection.setLocalDescription(offer);
-                socket.send(JSON.stringify({ type:'offer', offer, to: partnerInfo.username, username, avatar:'' }));
+                socket.send(JSON.stringify({ type: 'offer', offer, to: partnerInfo.username, username, avatar: '' }));
             });
         }
     });
 }
 
-function acceptCall(){
+function acceptCall() {
     const callStatus = document.getElementById('callStatus');
     callStatus.innerText = '已接听，正在建立通话...';
     document.querySelector('#callOverlay audio').pause();
-    peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer))
-    .then(()=>{
-        peerConnection.createAnswer().then(answer=>{
+
+    peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer)).then(() => {
+        peerConnection.createAnswer().then(answer => {
             peerConnection.setLocalDescription(answer);
-            socket.send(JSON.stringify({ type:'answer', answer, to: partnerInfo.username }));
+            socket.send(JSON.stringify({ type: 'answer', answer, to: partnerInfo.username }));
         });
     });
 }
 
-function endCall(isCaller=false){
-    if(peerConnection) peerConnection.close();
-    if(localStream) localStream.getTracks().forEach(track=>track.stop());
+function endCall(isCaller = false) {
+    if (peerConnection) peerConnection.close();
+    if (localStream) localStream.getTracks().forEach(track => track.stop());
     const overlay = document.getElementById('callOverlay');
-    if(overlay) overlay.remove();
+    if (overlay) overlay.remove();
     isCalling = false;
 }
 </script>
-
 </body>
 </html>

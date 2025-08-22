@@ -385,7 +385,7 @@ socket.onmessage = async (e) => {
       if (!isMe) {
         partnerInfo.pubkey = pubkey;
         partnerInfo.username = username;
-        partnerInfo.avatar = user.avatar;
+        partnerInfo.avatar = event.avatar|| "默认头像URL或空字符串";
         partnerInfo.online = true;
 
         partnerName.textContent = partnerInfo.username;

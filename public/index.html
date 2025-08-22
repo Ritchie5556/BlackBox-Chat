@@ -216,7 +216,7 @@ window.onload = () => {
   } while(!name || name.trim() === "");
   window.username = name;  
 };
-const partnerAvatar = document.getElementById("partnerAvatar");
+const partnerAvatar = document.getElementById("partnerAvatar");//头像
 const partnerName = document.getElementById("partnerName");
 const logDiv = document.getElementById("log");
 const socket = new WebSocket("wss://relay.damus.io");
@@ -287,6 +287,7 @@ let participants = [];
 socket.onopen = () => {
   log("✅ 已连接Relay网络聊天室", "system");
   setPartnerStatus("online")//加入聊天室后，默认在线状态
+  consloe.log("当前状态:",setPartnerStatus("online"))
   document.getElementById("sendBtn").disabled = false;
   //socket.send(JSON.stringify({ system: true, join: true, username, avatar: "", requestRoom: true }));
   socket.send(
@@ -437,8 +438,8 @@ function startCall(isIncoming=false){
     alert("凭证已过期，请重新进入聊天室");
     return;
   }
-
-  if(!partnerInfo.online){ alert("对方不在线，无法通话"); return; }
+  alert(partnerInfo.online)
+  if(partnerInfo.online){ alert("对方不在线，无法通话"); return; }
   isCalling = true;
 
   const callOverlay = document.createElement('div');

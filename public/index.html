@@ -205,7 +205,7 @@ async function send(eventobj=null) {
    eventobj.sig = toHex(sig);
   // 发送
     socket.send(JSON.stringify(["EVENT", eventobj]));
-    if(!eventobj.tags.some(t=>t[0]==="join")){
+    if(!eventobj.tags.some(t=>t[0]==="t")){
       document.getElementById("msg").value = "";
        log(`${window.username}: ${msg}`, "me"); 
     }
@@ -237,7 +237,7 @@ socket.onopen = () => {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10008"], ["join","true",window.username]],
+    tags: [["t", "room10008"], ["t","true",window.username]],
     content:`${window.username} 加入了聊天室`
   };
   send(joinEvent);
@@ -268,7 +268,7 @@ if(Array.isArray(data)){
     const event = data[2];
     if (event.kind !== 1) {
     // 加入事件
-      const joinTag = event.tags.find(t => t[0] === "join");
+      const joinTag = event.tags.find(t => t[0] === "t");
       const joinedName = joinTag[2] || "未知用户";
       console.log("event.tags:", event.tags);
       log(`${joinedName} 已加入房间`, "system");

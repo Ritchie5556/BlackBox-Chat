@@ -305,7 +305,7 @@ if(Array.isArray(data)){
       partnerInfo.online = true;
       partnerName.textContent = partnerInfo.username;
       partnerAvatar.src = partnerInfo.avatar;
-      log(${partnerInfo.username} 已加入房间, "system");
+      log(`${partnerInfo.username} 已加入房间`, "system");
 
       if (data.join && data.username === username) {
         log("等待其他人加入...", "system");

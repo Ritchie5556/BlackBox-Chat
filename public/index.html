@@ -145,16 +145,6 @@
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
 <script>
-function setPartnerStatus(state){
-  const circle = document.getElementById("statusCircle");
-  const text = document.getElementById("statusText");
-  circle.className = "status-circle " + state;
-  if(state === "online") text.textContent = "在线";
-  if(state === "offline") text.textContent = "离线";
-  if(state === "busy") text.textContent = "繁忙";
-    partnerInfo.state = state;
-}
-  
 </script> 
 <script type="module">
   import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
@@ -225,6 +215,16 @@ let myRoom = null;
 let partnerInfo = { username: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
 let emojis = [];
 const myUsersMap = {}; // pubkey → 用户名映射
+//状态判断
+function setPartnerStatus(state){
+  const circle = document.getElementById("statusCircle");
+  const text = document.getElementById("statusText");
+  circle.className = "status-circle " + state;
+  if(state === "online") text.textContent = "在线";partnerInfo.online=true;
+  if(state === "offline") text.textContent = "离线";partnerInfo.online=false;
+  if(state === "busy") text.textContent = "繁忙";partnerInfo.online=true;
+    partnerInfo.state = state;
+}
 // -------------------- 表情包 --------------------
 fetch('other/emojis.json')
   .then(res => res.json())
@@ -287,7 +287,7 @@ let participants = [];
 socket.onopen = () => {
   log("✅ 已连接Relay网络聊天室", "system");
   setPartnerStatus("online")//加入聊天室后，默认在线状态
-  consloe.log("当前状态:",setPartnerStatus("online"))
+  console.log("当前状态:",setPartnerStatus("online"))
   document.getElementById("sendBtn").disabled = false;
   //socket.send(JSON.stringify({ system: true, join: true, username, avatar: "", requestRoom: true }));
   socket.send(
@@ -389,6 +389,13 @@ socket.onmessage = async (e) => {
       const type = data.pubkey === window.myPubKey ? "me" : "other";
       const name = data.username || "未知用户";
       log(`${name}: ${data.msg}`, type);
+      if (type === "other") {
+          partnerInfo.pubkey = event.pubkey;
+          partnerInfo.username = partnerInfo.username || "未知用户";
+          partnerInfo.online = true;
+          partnerName.textContent = partnerInfo.username;
+          partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
+      }
       if (data.username !== window.username) {
         partnerInfo.username = data.username;
         partnerInfo.avatar = data.avatar || partnerAvatar.src;
@@ -433,6 +440,11 @@ const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 function startCall(isIncoming=false){
   if(isCalling) return;
+  //电话聊天之前先判断聊天室里的人数
+  if (participants.length <= 1) { 
+    alert("当前聊天室只有你一个人，无法发起通话"); 
+    return; 
+  }
   const now=Math.floor(Date.now()/1000)//时间
   if (!window.credential || now > window.credential.expireAt) {
     alert("凭证已过期，请重新进入聊天室");

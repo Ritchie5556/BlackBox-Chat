@@ -313,8 +313,7 @@ if(Array.isArray(data)){
     } else if (data.username && data.msg) {
       const type = data.pubkey === window.myPubKey ? "me" : "other";
       const name = data.username || "未知用户";
-      log(${name}: ${data.msg}, type);
-
+      log(`${name}: ${data.msg}`, type);
       if (data.username !== username) {
         partnerInfo.username = data.username;
         partnerInfo.avatar = data.avatar || partnerAvatar.src;

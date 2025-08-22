@@ -118,18 +118,17 @@
 <script type="module">
 import { secp256k1 } from "https://esm.sh/@noble/curves@1.8.1/secp256k1?target=es2020";
 
-window.nobleSchnorr = secp.schnorr;
+const nobleSchnorr = secp256k1.schnorr;
 
-// 启动时生成一对密钥
-const privKeyBytes = secp.utils.randomPrivateKey();
-window.myPrivKey = privKeyBytes;
+// 生成密钥对
+const privKeyBytes = secp256k1.utils.randomPrivateKey();
+const pubKeyBytes = await nobleSchnorr.getPublicKey(privKeyBytes);
 
-// 浏览器没有 Buffer，使用 Uint8Array 转 hex
-const pubKeyBytes = await secp.schnorr.getPublicKey(privKeyBytes);
-window.myPubKey = Array.from(pubKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+// 浏览器没有 Buffer，转成 hex
+const myPubKey = Array.from(pubKeyBytes).map(b => b.toString(16).padStart(2,'0')).join('');
 
-console.log("私钥:", window.myPrivKey);
-console.log("公钥:", window.myPubKey);
+console.log("私钥:", privKeyBytes);
+console.log("公钥:", myPubKey);
 
 let username = prompt("请输入你的昵称");
 while (!username || username.trim() === "") {

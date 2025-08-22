@@ -346,7 +346,7 @@ function log(message, type="other"){
   const logDiv = document.getElementById("log");
   if(!logDiv) return; // 防止 logDiv 未找到报错
   const msgDiv = document.createElement("div");
-  msgDiv.className = msg ${type};
+  msgDiv.className = `msg ${type}`;
   msgDiv.textContent = message;
   logDiv.appendChild(msgDiv);
   logDiv.scrollTop = logDiv.scrollHeight;

@@ -271,7 +271,7 @@ if(Array.isArray(data)){
       const name = type === "me" ? window.username : event.pubkey.slice(0, 8);
       log(`${name}: ${event.content}`, type);
       if (event.tags.some(t => t[0] === "join")) {
-        const joinedName = event.tags.find(t => t[0] === "join")[1] || "未知用户";
+        const joinedName = event.tags.find(t => t[0] === "join")[2] || "未知用户";
         log(`${joinedName} 已加入房间`, "system");
       }
     }

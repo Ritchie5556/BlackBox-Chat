@@ -257,27 +257,27 @@ socket.onmessage = async (e) => {
       if (data.join) {
         console.log("用户加入:", data.username);
       }
-   if(Array.isArray(data)){ 
-        // Relay 确认事件 OK
-        if (data[0] === "OK") {
-          console.log("✅ Relay 确认:", data);
-        }
-        // Relay 推送的 EVENT
-        if(data[0] === "EVENT"){
-          const event = data[2];
-          if (event.kind === 1) {
-          // 用 pubkey 判断消息是自己还是对方
-            const type = event.pubkey === window.myPubKey ? "me" : "other";
-            const name = type === "me" ? username : event.pubkey.slice(0, 8);
-            log(${name}: ${event.content}, type);
-            if (event.tags.some(t => t[0] === "join")) {
-                const joinedName = event.tags.find(t => t[0] === "join")[1] || "未知用户";
-                log(${joinedName} 已加入房间, "system");
-            }
-          }
-        }
-         return
-   } 
+if(Array.isArray(data)){ 
+  // Relay 确认事件 OK
+  if (data[0] === "OK") {
+    console.log("✅ Relay 确认:", data);
+  }
+  // Relay 推送的 EVENT
+  if(data[0] === "EVENT"){
+    const event = data[2];
+    if (event.kind === 1) {
+      // 用 pubkey 判断消息是自己还是对方
+      const type = event.pubkey === window.myPubKey ? "me" : "other";
+      const name = type === "me" ? window.username : event.pubkey.slice(0, 8);
+      log(`${name}: ${event.content}`, type);
+      if (event.tags.some(t => t[0] === "join")) {
+        const joinedName = event.tags.find(t => t[0] === "join")[1] || "未知用户";
+        log(`${joinedName} 已加入房间`, "system");
+      }
+    }
+  }
+  return;
+}
         if (type === "other") {
           partnerInfo.pubkey = event.pubkey;
           partnerInfo.username = partnerInfo.username || "未知用户";

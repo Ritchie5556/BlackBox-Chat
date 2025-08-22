@@ -557,7 +557,7 @@ function startCall(isIncoming=false){
            created_at: Math.floor(Date.now()/1000),
            kind: 1, // 普通消息类型
            tags: [["t","room10008"], ["call","offer"]], // 标记为语音call信令
-          log("send() 调试: socket状态=" + socket?.readyState + " roomId=" + roomId);
+            alert("send() 调试: socket状态=" + socket?.readyState + " roomId=" + roomId);
            content: JSON.stringify({ type:'offer', offer:offer.toJSON() })
        };
           send(callEvent); 

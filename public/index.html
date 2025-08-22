@@ -121,7 +121,7 @@ window.nobleSchnorr = secp256k1.schnorr;
 // 启动时生成一对密钥
 const privKeyBytes = secp.utils.randomPrivateKey();
 window.myPrivKey = privKeyBytes;
-const pubKeyBytes = await secp.schnorr.getPublicKey(privKeyBytes);
+const pubKeyBytes = secp.schnorr.getPublicKey(privKeyBytes);
 window.myPubKey = Buffer.from(pubKeyBytes).toString("hex");
 </script>
 
@@ -135,7 +135,7 @@ const partnerAvatar = document.getElementById("partnerAvatar");
 const partnerName = document.getElementById("partnerName");
 const logDiv = document.getElementById("log");
 
-const socket = new WebSocket("wss://blackbox-chat.onrender.com");
+const socket = new WebSocket("wss://relay.damus.io");
 let myRoom = null;
 let partnerInfo = {
     username: "未知用户",

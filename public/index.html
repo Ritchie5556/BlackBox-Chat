@@ -116,7 +116,7 @@
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
 <script type="module">
-import * as secp from "https://esm.sh/@noble/curves@1.8.1/secp256k1?target=es2020";
+import { secp256k1 } from "https://esm.sh/@noble/curves@1.8.1/secp256k1?target=es2020";
 
 window.nobleSchnorr = secp.schnorr;
 

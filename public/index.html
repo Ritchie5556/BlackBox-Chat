@@ -130,9 +130,7 @@ window.myPubKey = Array.from(pubKeyBytes).map(b => b.toString(16).padStart(2, '0
 
 console.log("私钥:", window.myPrivKey);
 console.log("公钥:", window.myPubKey);
-</script>
 
-<script>
 let username = prompt("请输入你的昵称");
 while (!username || username.trim() === "") {
     username = prompt("昵称不能为空，请输入你的昵称");

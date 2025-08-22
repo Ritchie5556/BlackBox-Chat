@@ -399,7 +399,20 @@ socket.onmessage = async (e) => {
         partnerName.textContent = partnerInfo.username;
         partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
       }
-      return;
+      if(event.tags?.some(t => t[0] === "call")){
+          const signal = JSON.parse(event.content);
+         if(signal.type === "offer" && !isCalling){
+             window.incomingOffer = signal.offer;
+             startCall(true); // 被叫
+             alert(`${signal.username} 发起了语音通话`);
+         } else if(signal.type === "answer") {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(signal.answer));
+         } else if(signal.type === "ice" && signal.candidate){
+           peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+         }
+         return;
+     }
+        return;
     }
 
     // 3. 系统消息（非数组）
@@ -538,7 +551,15 @@ function startCall(isIncoming=false){
     if(!isIncoming){
       peerConnection.createOffer().then(offer => {
         peerConnection.setLocalDescription(offer);
-        socket.send(JSON.stringify({ type:'offer', offer, to: partnerInfo.username, username, avatar:'' }));
+        // 通过聊天室发送 offer
+        const callEvent = {
+           pubkey: window.myPubKey,
+           created_at: Math.floor(Date.now()/1000),
+           kind: 1, // 普通消息类型
+           tags: [["t","room10008"], ["call","offer"]], // 标记为语音call信令
+           content: JSON.stringify({ type:'offer', offer, username: window.username })
+       };
+          send(callEvent); 
       });
     }
   });

@@ -247,6 +247,11 @@ socket.onmessage = async (e) => {
   console.log("收到:", e.data); //日志
   try {
     const data = JSON.parse(e.data);
+    // 忽略 EOSE
+    if (Array.isArray(data) && data[0] === "EOSE") {
+      console.log("EOSE 收到:", data[1]);
+      return;
+    }
     // 系统消息
     if (data.system) {
       log(data.msg, "system");
@@ -271,6 +276,7 @@ socket.onmessage = async (e) => {
   // Relay 推送的 EVENT
   if(Array.isArray(data) && data[0] === "EVENT"){
     const event = data[2];
+     if(!event) return;
       // 如果是新 pubkey，尝试从 content 提取用户名
       if (!myUsersMap[event.pubkey]) {
         const match = event.content.match(/^(.+) 加入了聊天室$/);

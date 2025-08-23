@@ -568,7 +568,7 @@ function startCall(isIncoming=false){
            created_at: Math.floor(Date.now()/1000),
            kind: 1,
            tags: [["t","room10008"], ["call","offer"]], 
-           content: JSON.stringify({ type: 'offer', offer: offer.toJSON(), username: window.username })
+           content: JSON.stringify({ type: 'offer', offer, username: window.username })
        };
           send(callEvent); 
       });
@@ -590,7 +590,7 @@ function acceptCall(){
            created_at: Math.floor(Date.now()/1000),
            kind: 1,
            tags: [["t","room10008"], ["call","answer"]],
-           content: JSON.stringify({ type:'answer', answer: answer.toJSON(), username: window.username })
+           content: JSON.stringify({ type:'answer', answer, username: window.username })
      };
         send(answerEvent);
     });

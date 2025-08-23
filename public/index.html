@@ -475,126 +475,68 @@ function log(message, type="other"){
 let localStream, peerConnection, isCalling = false;
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-async function startCall(isIncoming=false){
-  if(isCalling) return;
+async function startCall(isIncoming = false) {
+    if (isCalling) return;
 
-  if (participants.length <= 1) { 
-    alert("当前聊天室只有你一个人，无法发起通话"); 
-    return; 
-  }
-
-  const now = Math.floor(Date.now()/1000);
-  if (!window.credential || now > window.credential.expireAt) {
-    alert("凭证已过期，请重新进入聊天室");
-    return;
-  }
-
-  if(isIncoming && !partnerInfo.online){ 
-     alert("对方不在线，无法通话"); 
-     return; 
-  }
-
-  isCalling = true;
-
-  // UI 弹窗
-  const callOverlay = document.createElement('div');
-  callOverlay.id = 'callOverlay';
-  Object.assign(callOverlay.style,{
-    position:'fixed', top:0, left:0, width:'100%', height:'100%',
-    background:'rgba(255,255,255,0.2)', backdropFilter:'blur(10px)',
-    display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center',
-    zIndex:9999
-  });
-
-  const status = document.createElement('div');
-  status.id = 'callStatus';
-  status.innerText = isIncoming 
-    ? `${partnerInfo.username} 来电` 
-    : '正在等待对方接听...';
-  Object.assign(status.style,{marginBottom:'20px', color:'#fff', fontSize:'20px'});
-  callOverlay.appendChild(status);
-
-  const audio = document.createElement('audio');
-  audio.src = 'sound/DaDaDum - The Soundlings.mp3';
-  audio.loop = true;
-  audio.autoplay = true;
-  callOverlay.appendChild(audio);
-
-  const hangupBtn = document.createElement('button');
-  hangupBtn.innerText = '📞挂断';
-  Object.assign(hangupBtn.style,{background:'red', color:'#fff', marginRight:'20px', padding:'10px 20px'});
-  hangupBtn.onclick = () => endCall(true);
-
-  const acceptBtn = document.createElement('button');
-  acceptBtn.innerText = '📞接听';
-  Object.assign(acceptBtn.style,{background:'green', color:'#fff', padding:'10px 20px'});
-  acceptBtn.onclick = acceptCall;
-
-  const btnContainer = document.createElement('div');
-  btnContainer.style.display = 'flex';
-  btnContainer.style.gap = '20px';
-  if(isIncoming) btnContainer.appendChild(acceptBtn);
-  btnContainer.appendChild(hangupBtn);
-  callOverlay.appendChild(btnContainer);
-
-  document.body.appendChild(callOverlay);
-
-  // 1. 先创建 overlay 显示来电
-   createCallOverlay(true);
-
- // 2. 然后获取本地音频
-   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-   localStream = stream;
-
-// 3. 初始化 peerConnection
-   peerConnection = new RTCPeerConnection();
-   window.peerConnection = peerConnection;
-  
-  // localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-// 4. 设置 ontrack, onicecandidate 等
-    peerConnection.ontrack = e => {
-    let remoteAudio = document.getElementById('remoteAudio');
-     if(!remoteAudio){
-       remoteAudio = document.createElement('audio');
-       remoteAudio.id = 'remoteAudio';
-       remoteAudio.autoplay = true;
-       document.body.appendChild(remoteAudio);
-     }
-       remoteAudio.srcObject = e.streams[0];
-   };
-    peerConnection.onicecandidate = e => {
-    if(e.candidate){
-      send({
-        pubkey: window.myPubKey,
-        created_at: Math.floor(Date.now()/1000),
-        kind: 1,
-        tags: [["t","room10008"], ["call","ice"]],
-        content: JSON.stringify({ type:'ice', candidate:e.candidate })
-      });
+    // 电话聊天之前先判断聊天室里的人数
+    if (participants.length <= 1) {
+        alert("当前聊天室只有你一个人，无法发起通话");
+        return;
     }
-  };
+
+    const now = Math.floor(Date.now() / 1000);
+    if (!window.credential || now > window.credential.expireAt) {
+        alert("凭证已过期，请重新获取");
+        return;
+    }
+
+    const callStatus = document.getElementById('callStatus');
+    callStatus.innerText = '正在建立通话...';
+
+    isCalling = true;
+
+    if (isIncoming) {
+        // —— 被叫流程 —— 
+        if (window.incomingOffer) {
+            await acceptCall();
+        }
+    } else {
+        // —— 主叫流程 —— 
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        // 发送 offer 给对方
+        send({
+            pubkey: window.myPubKey,
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 1,
+            tags: [["t", "room10008"], ["call", "offer"]],
+            content: JSON.stringify({ type: 'offer', sdp: offer.sdp, offerType: offer.type, username: window.username })
+        });
+
+        log("📞 已发送呼叫请求", "system");
+    }
 }
-//5添加本地 track
-  stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-  
-// 6 执行主叫/被叫逻辑
-if (isIncoming) {
-    // —— 被叫流程 —— 
-    if (window.incomingOffer) {
-        await acceptCall();
-    }
-} else {
-    // —— 主叫流程 —— 
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
 
-    send({
+async function acceptCall() {
+    const callStatus = document.getElementById('callStatus');
+    callStatus.innerText = '已接听，正在建立通话...';
+    document.querySelector('#callOverlay audio').pause();
+
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    const answerEvent = {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10008"], ["call", "offer"]],
-        content: JSON.stringify({ type: 'offer', sdp: offer.sdp, offerType: offer.type, username: window.username })
-    });
+        tags: [["t", "room10008"], ["call", "answer"]],
+        content: JSON.stringify({ type: 'answer', sdp: answer.sdp, answerType: answer.type, username: window.username })
+    };
+    send(answerEvent);
+
+    log("📞 来电信号发送成功", "system");
 }
 
 async function acceptCall() {

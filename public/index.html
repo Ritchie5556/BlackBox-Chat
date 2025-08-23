@@ -474,6 +474,38 @@ function log(message, type="other"){
 // -------------------- WebRTC语音通话 --------------------
 let localStream, peerConnection, isCalling = false;
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+async function initPeerConnection() {
+  peerConnection = new RTCPeerConnection(config);
+
+  // 获取本地音频流
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+  // 播放远端音频
+  peerConnection.ontrack = (event) => {
+    let remoteAudio = document.getElementById("remoteAudio");
+    if (!remoteAudio) {
+      remoteAudio = document.createElement("audio");
+      remoteAudio.id = "remoteAudio";
+      remoteAudio.autoplay = true;
+      document.body.appendChild(remoteAudio);
+    }
+    remoteAudio.srcObject = event.streams[0];
+  };
+
+  // 处理 ICE 候选
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      send({
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [["t", "room10008"], ["call", "ice"]],
+        content: JSON.stringify({ type: "ice", candidate: event.candidate })
+      });
+    }
+  };
+}
 
 async function startCall(isIncoming = false) {
     if (isCalling) return;
@@ -489,7 +521,10 @@ async function startCall(isIncoming = false) {
         alert("凭证已过期，请重新获取");
         return;
     }
-      const callOverlay = document.createElement('div');
+    if (!peerConnection) {
+        await initPeerConnection();
+    }
+  const callOverlay = document.createElement('div');
   callOverlay.id = 'callOverlay';
   Object.assign(callOverlay.style,{
     position:'fixed',top:0,left:0,width:'100%',height:'100%',
@@ -559,6 +594,9 @@ async function startCall(isIncoming = false) {
 }
 
 async function acceptCall() {
+    if (!peerConnection) {
+        await initPeerConnection();
+    }
     const callStatus = document.getElementById('callStatus');
     callStatus.innerText = '已接听，正在建立通话...';
     document.querySelector('#callOverlay audio').pause();

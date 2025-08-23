@@ -262,6 +262,15 @@ function insertEmoji(symbol){
   msgInput.focus();
 }
 async function send(eventobj=null) {
+  if (eventobj) {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(["EVENT", eventobj]));
+      return;
+    } else {
+      log("⚠️ 信令发送失败，WebSocket未连接", "system");
+      return;
+    }
+  }
  if(!eventobj){
    const msgInput = document.getElementById("msg");
    const msg = msgInput.value.trim();
@@ -673,32 +682,10 @@ async function startCall(isIncoming = false) {
         log("📞 已发送呼叫请求", "system");
     }
 }
-
 async function acceptCall() {
     if (!peerConnection) {
         await initPeerConnection();
     }
-    const callStatus = document.getElementById('callStatus');
-    callStatus.innerText = '已接听，正在建立通话...';
-    document.querySelector('#callOverlay audio').pause();
-
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-
-    const answerEvent = {
-        pubkey: window.myPubKey,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 1,
-        tags: [["t", "room10008"], ["call", "answer"]],
-        content: JSON.stringify({ type: 'answer', sdp: answer.sdp, answerType: answer.type, username: window.username })
-    };
-    send(answerEvent);
-
-    log("📞 来电信号发送成功", "system");
-}
-
-async function acceptCall() {
     const callStatus = document.getElementById('callStatus');
     callStatus.innerText = '已接听，正在建立通话...';
     document.querySelector('#callOverlay audio').pause();

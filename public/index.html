@@ -330,6 +330,67 @@ socket.onopen = () => {
   });
   send(joinEvent);
 };
+// 定义 handleSignal 函数
+async function handleSignal(data) {
+  switch (data.type) {
+    case "offer":
+      if (!isCalling) {
+        await initPeerConnection();
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        ws.send(JSON.stringify({
+          type: "answer",
+          answer,
+          username: window.username
+        }));
+
+        alert(`${data.username} 发起了语音通话`);
+      }
+      break;
+
+    case "answer":
+      if (peerConnection) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      }
+      break;
+
+    case "ice":
+      if (peerConnection && data.candidate) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+      break;
+
+    case "hangup":
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      isCalling = false;
+      removeCallOverlay();
+      break;
+  }
+}
+function handleEvent(event) {
+  const pubkey = event.pubkey;
+  const isMe = pubkey === window.myPubKey;
+  const username = isMe ? window.username : (myUsersMap[pubkey] || pubkey.slice(0, 8));
+
+  if (event.content.includes("加入了聊天室")) {
+    log(`${username} 已加入房间`, "system");
+    if (!participants.find(p => p.pubkey === pubkey)) {
+      participants.push({ pubkey, username, avatar: "xxx", lastSeen: Date.now() });
+    }
+    return;
+  }
+
+  // 普通消息
+  log(`${event.content}`, isMe ? "me" : "other");
+  let user = participants.find(p => p.pubkey === pubkey);
+  if (user) user.lastSeen = Date.now();
+}
+
 socket.onmessage = async (e) => {
   try {
     const data = JSON.parse(e.data);
@@ -345,6 +406,10 @@ socket.onmessage = async (e) => {
         console.log("EOSE 收到:", data[1]);
         return;
       }
+      if (data[0] === "EVENT") {
+        handleEvent(data[2]);  //  聊天室/事件消息
+        return;
+      } 
     }
 
     // 2. Relay 推送的 EVENT
@@ -450,6 +515,10 @@ socket.onmessage = async (e) => {
       if (peerConnection) {
         await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
       }
+      return;
+    }
+    if (data.type) {
+      await handleSignal(data); 
       return;
     }
 
@@ -646,8 +715,23 @@ async function acceptCall() {
 }
 
 function endCall(isCaller=false){
-  if(peerConnection) peerConnection.close();
-  if(localStream) localStream.getTracks().forEach(track=>track.stop());
+  if(peerConnection) {
+    peerConnection.close();
+    peerConnection = null;
+  }
+  if(localStream) {
+    localStream.getTracks().forEach(track=>track.stop());
+    localStream = null;
+  }
+
+  // 通知对方呼叫已取消
+  if (isCaller && ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: "webrtc-hangup",
+      from: username
+    }));
+  }
+
   const overlay = document.getElementById('callOverlay');
   if(overlay) overlay.remove();
   isCalling = false;

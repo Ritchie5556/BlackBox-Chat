@@ -322,6 +322,12 @@ socket.onopen = () => {
     content:`${window.username} 加入了聊天室`
   };
   myUsersMap[window.myPubKey] = window.username; // 保存映射
+  participants.push({
+    pubkey: window.myPubKey,
+    username: window.username,
+    avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
+    lastSeen: Date.now()
+  });
   send(joinEvent);
 };
 socket.onmessage = async (e) => {

@@ -401,11 +401,12 @@ function handleEvent(event) {
    const statusTag = tags.find(t => t[0] === "status");
    if (statusTag) {
      if (statusTag[1] === "JOIN") {
-       onlineUsers.add(event.pubkey);
+       participants.push(window.myPubKey);
+       console.log("你已加入聊天室，当前人数：", participants.length);
      } else if (statusTag[1] === "LEAVE") {
        onlineUsers.delete(event.pubkey);
     }
-      console.log("📊 当前聊天室人数：", onlineUsers.size);
+      console.log("当前聊天室人数：", participants.length);
   }
   const pubkey = event.pubkey;
   const isMe = pubkey === window.myPubKey;
@@ -619,6 +620,7 @@ function getOnlineUsers() {
     );
 }
 async function startCall(isIncoming = false) {
+    console.log("发起通话，isIncoming:", isIncoming);
     if (isCalling) return;
     const onlineUsers = getOnlineUsers();
     if (onlineUsers.length === 0) {
@@ -626,7 +628,7 @@ async function startCall(isIncoming = false) {
         return;
     }
     // 电话聊天之前先判断聊天室里的人数
-    if (onlineUsers.size < 2) {
+    if (participants.length  < 2) {
         alert("当前聊天室只有你一个人，无法发起通话","system");
         return;
     }
@@ -684,6 +686,14 @@ async function startCall(isIncoming = false) {
     callStatus.innerText = '正在建立通话...';
 
     isCalling = true;
+      // 确保 peerConnection 存在
+  if (!peerConnection) await initPeerConnection();
+
+  // 显示通话窗口
+  const callUI = document.getElementById("callUI");
+  callUI.classList.remove("hidden");
+  callUI.classList.add("flex");
+  document.getElementById("callStatus").innerText = isIncoming ? "对方来电..." : "正在呼叫...";
 
     if (isIncoming) {
         // —— 被叫流程 —— 
@@ -711,6 +721,10 @@ async function acceptCall() {
     if (!peerConnection) {
         await initPeerConnection();
     }
+    if (!window.incomingOffer) {
+       console.error("没有收到 offer，无法接听");
+       return;
+     }
     const callStatus = document.getElementById('callStatus');
     callStatus.innerText = '已接听，正在建立通话...';
     document.querySelector('#callOverlay audio').pause();
@@ -735,7 +749,8 @@ async function acceptCall() {
             username: window.username
         })
     };
-    send(answerEvent);
+    // 更新 UI
+    document.getElementById("callStatus").innerText = "通话中...";   
 }
 
 function endCall(isCaller=false){

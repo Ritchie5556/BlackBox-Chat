@@ -303,9 +303,9 @@ async function send(eventobj=null) {
  }
  }
   function announceJoin() {
-  // 先把自己加进在线列表（避免还没等到自己广播返回就 size=0）
-  onlineUsers.add(window.myPubKey);
-  console.log("📢 你已加入聊天室，当前人数：", onlineUsers.size);
+  // 先把自己加进在线列表
+  participants.push(window.myPubKey);
+  console.log("你已加入聊天室，当前人数：",  participants.length);
 
   // 广播 JOIN 消息，让别人知道你上线了
   send({

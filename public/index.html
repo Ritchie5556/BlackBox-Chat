@@ -239,7 +239,7 @@ function setPartnerStatus(state){
 // -------------------- 表情包 --------------------
 fetch('other/emojis.json')
   .then(res => res.json())
-  .then(data => emojis = data);
+  .then(data => emojis = data);  
 
 function toggleEmojiPanel(){
   let panel = document.getElementById('emojiPanel');
@@ -302,10 +302,25 @@ async function send(eventobj=null) {
   }
  }
  }
+  function announceJoin() {
+  // 先把自己加进在线列表（避免还没等到自己广播返回就 size=0）
+  onlineUsers.add(window.myPubKey);
+  console.log("📢 你已加入聊天室，当前人数：", onlineUsers.size);
+
+  // 广播 JOIN 消息，让别人知道你上线了
+  send({
+    pubkey: window.myPubKey,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 1,
+    tags: [["t", "room10008"], ["status", "JOIN"]],
+    content: window.username + " 加入了聊天室"
+  });
+}
 // -------------------- 聊天功能 --------------------
 let participants = [];
 socket.onopen = () => {
   log("✅ 已连接Relay网络聊天室", "system");
+  announceJoin();  // 广播自己上线
   setPartnerStatus("online")//加入聊天室后，默认在线状态
   console.log("当前状态:",setPartnerStatus("online"))
   document.getElementById("sendBtn").disabled = false;
@@ -382,6 +397,16 @@ async function handleSignal(data) {
   }
 }
 function handleEvent(event) {
+   const tags = event.tags || [];
+   const statusTag = tags.find(t => t[0] === "status");
+   if (statusTag) {
+     if (statusTag[1] === "JOIN") {
+       onlineUsers.add(event.pubkey);
+     } else if (statusTag[1] === "LEAVE") {
+       onlineUsers.delete(event.pubkey);
+    }
+      console.log("📊 当前聊天室人数：", onlineUsers.size);
+  }
   const pubkey = event.pubkey;
   const isMe = pubkey === window.myPubKey;
   const username = isMe ? window.username : (myUsersMap[pubkey] || pubkey.slice(0, 8));
@@ -601,8 +626,8 @@ async function startCall(isIncoming = false) {
         return;
     }
     // 电话聊天之前先判断聊天室里的人数
-    if (participants.length <= 1) {
-        alert("当前聊天室只有你一个人，无法发起通话");
+    if (onlineUsers.size < 2) {
+        alert("当前聊天室只有你一个人，无法发起通话","system");
         return;
     }
 

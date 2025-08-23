@@ -575,10 +575,17 @@ async function initPeerConnection() {
     }
   };
 }
-
+function getOnlineUsers() {
+    return participants.filter(p => p.pubkey !== window.myPubKey && p.lastSeen && (Date.now() - p.lastSeen) < 60 * 1000); 
+    // 最近 1 分钟有活动的用户算在线
+}
 async function startCall(isIncoming = false) {
     if (isCalling) return;
-
+    const onlineUsers = getOnlineUsers();
+    if (onlineUsers.length === 0) {
+        alert("当前聊天室没有其他在线用户，无法发起通话");
+        return;
+    }
     // 电话聊天之前先判断聊天室里的人数
     if (participants.length <= 1) {
         alert("当前聊天室只有你一个人，无法发起通话");

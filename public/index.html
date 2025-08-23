@@ -628,7 +628,7 @@ async function startCall(isIncoming = false) {
         return;
     }
     // 电话聊天之前先判断聊天室里的人数
-    if (participants.length  < 2) {
+    if (participants.length  < 1) {
         alert("当前聊天室只有你一个人，无法发起通话","system");
         return;
     }

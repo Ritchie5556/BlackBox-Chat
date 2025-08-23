@@ -388,7 +388,9 @@ function handleEvent(event) {
   // 普通消息
   log(`${event.content}`, isMe ? "me" : "other");
   let user = participants.find(p => p.pubkey === pubkey);
-  if (user) user.lastSeen = Date.now();
+  if (user){
+    user.lastSeen = Date.now();
+  }
 }
 
 socket.onmessage = async (e) => {
@@ -460,6 +462,7 @@ socket.onmessage = async (e) => {
           lastSeen: Date.now()
         });
       } else {
+        user.online = true; 
         user.lastSeen = Date.now();
       }
 
@@ -576,8 +579,7 @@ async function initPeerConnection() {
   };
 }
 function getOnlineUsers() {
-    return participants.filter(p => p.pubkey !== window.myPubKey && p.lastSeen && (Date.now() - p.lastSeen) < 60 * 1000); 
-    // 最近 1 分钟有活动的用户算在线
+    return participants.filter(p => p.pubkey !== window.myPubKey && p.online && (Date.now() - p.lastSeen) < 60*1000);
 }
 async function startCall(isIncoming = false) {
     if (isCalling) return;

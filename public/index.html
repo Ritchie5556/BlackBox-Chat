@@ -411,8 +411,8 @@ socket.onmessage = async (e) => {
       if(event.tags?.some(t => t[0] === "call")){
           const signal = JSON.parse(event.content);
          if(signal.type === "offer" && !isCalling){
-             window.incomingOffer = signal.offer;
-              window.incomingOffer = { type: signal.offerType, sdp: signal.sdp };//必须有sdp
+             window.incomingOffer = { type: signal.offerType, sdp: signal.sdp };
+             partnerInfo.username = signal.username;//必须有sdp
              startCall(true); // 被叫
              alert(`${signal.username} 发起了语音通话`);
          } else if(signal.type === "answer") {
@@ -539,26 +539,30 @@ async function startCall(isIncoming=false){
 
   document.body.appendChild(callOverlay);
 
-  // 获取本地音频
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  localStream = stream;
-  peerConnection = new RTCPeerConnection(config);
-  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  // 1. 先创建 overlay 显示来电
+   createCallOverlay(true);
 
-  // 监听远程流
-  peerConnection.ontrack = e => {
+ // 2. 然后获取本地音频
+   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+   localStream = stream;
+
+// 3. 初始化 peerConnection
+   peerConnection = new RTCPeerConnection();
+   window.peerConnection = peerConnection;
+  
+  // localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+// 4. 设置 ontrack, onicecandidate 等
+    peerConnection.ontrack = e => {
     let remoteAudio = document.getElementById('remoteAudio');
-    if(!remoteAudio){
-      remoteAudio = document.createElement('audio');
-      remoteAudio.id = 'remoteAudio';
-      remoteAudio.autoplay = true;
-      document.body.appendChild(remoteAudio);
-    }
-    remoteAudio.srcObject = e.streams[0];
-  };
-
-  // 监听 ICE candidate
-  peerConnection.onicecandidate = e => {
+     if(!remoteAudio){
+       remoteAudio = document.createElement('audio');
+       remoteAudio.id = 'remoteAudio';
+       remoteAudio.autoplay = true;
+       document.body.appendChild(remoteAudio);
+     }
+       remoteAudio.srcObject = e.streams[0];
+   };
+    peerConnection.onicecandidate = e => {
     if(e.candidate){
       send({
         pubkey: window.myPubKey,
@@ -569,39 +573,38 @@ async function startCall(isIncoming=false){
       });
     }
   };
-
-  if(isIncoming){
-    // —— 被叫流程 —— 
-    if(window.incomingOffer){
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-
-      // 发送 answer
-      send({
-        pubkey: window.myPubKey,
-        created_at: Math.floor(Date.now()/1000),
-        kind: 1,
-        tags: [["t","room10008"], ["call","answer"]],
-        content: JSON.stringify({ type:'answer', sdp: answer.sdp, answerType: answer.type, username: window.username })
-      });
-    }
-  } else {
-    // —— 主叫流程 —— 
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    send({
-      pubkey: window.myPubKey,
-      created_at: Math.floor(Date.now()/1000),
-      kind: 1,
-      tags: [["t","room10008"], ["call","offer"]], 
-      content: JSON.stringify({ type:'offer', sdp: offer.sdp, offerType: offer.type, username: window.username })
-    });
-  }
 }
+//5添加本地 track
+  stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+// 6 执行主叫/被叫逻辑
+    if(isIncoming){
+        // —— 被叫流程 —— 
+        if(window.incomingOffer){
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
 
+            send({
+                pubkey: window.myPubKey,
+                created_at: Math.floor(Date.now()/1000),
+                kind: 1,
+                tags: [["t","room10008"], ["call","answer"]],
+                content: JSON.stringify({ type:'answer', sdp: answer.sdp, answerType: answer.type, username: window.username })
+            });
+        }
+    } else {
+        // —— 主叫流程 —— 
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
 
+        send({
+            pubkey: window.myPubKey,
+            created_at: Math.floor(Date.now()/1000),
+            kind: 1,
+            tags: [["t","room10008"], ["call","offer"]], 
+            content: JSON.stringify({ type:'offer', sdp: offer.sdp, offerType: offer.type, username: window.username })
+        });
+    }
 function acceptCall(){
   const callStatus = document.getElementById('callStatus');
   callStatus.innerText = '已接听，正在建立通话...';

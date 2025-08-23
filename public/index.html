@@ -576,54 +576,53 @@ async function startCall(isIncoming=false){
 }
 //5添加本地 track
   stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+  
 // 6 执行主叫/被叫逻辑
-    if(isIncoming){
-        // —— 被叫流程 —— 
-        if(window.incomingOffer){
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            send({
-                pubkey: window.myPubKey,
-                created_at: Math.floor(Date.now()/1000),
-                kind: 1,
-                tags: [["t","room10008"], ["call","answer"]],
-                content: JSON.stringify({ type:'answer', sdp: answer.sdp, answerType: answer.type, username: window.username })
-            });
-        }
-    } else {
-        // —— 主叫流程 —— 
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-
-        send({
-            pubkey: window.myPubKey,
-            created_at: Math.floor(Date.now()/1000),
-            kind: 1,
-            tags: [["t","room10008"], ["call","offer"]], 
-            content: JSON.stringify({ type:'offer', sdp: offer.sdp, offerType: offer.type, username: window.username })
-        });
+if (isIncoming) {
+    // —— 被叫流程 —— 
+    if (window.incomingOffer) {
+        await acceptCall();
     }
-function acceptCall(){
-  const callStatus = document.getElementById('callStatus');
-  callStatus.innerText = '已接听，正在建立通话...';
-  document.querySelector('#callOverlay audio').pause();
+} else {
+    // —— 主叫流程 —— 
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
 
-  peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer)).then(()=>{
-    peerConnection.createAnswer().then(answer=>{
-      peerConnection.setLocalDescription(answer);
-      // answer
-      const answerEvent = {
-           pubkey: window.myPubKey,
-           created_at: Math.floor(Date.now()/1000),
-           kind: 1,
-           tags: [["t","room10008"], ["call","answer"]],
-           content: JSON.stringify({ type:'answer', sdp: answer.sdp, answerType: answer.type, username: window.username })
-     };
-        send(answerEvent);
+    send({
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [["t", "room10008"], ["call", "offer"]],
+        content: JSON.stringify({ type: 'offer', sdp: offer.sdp, offerType: offer.type, username: window.username })
     });
-  });
+}
+
+async function acceptCall() {
+    const callStatus = document.getElementById('callStatus');
+    callStatus.innerText = '已接听，正在建立通话...';
+    document.querySelector('#callOverlay audio').pause();
+
+    // 设置远程描述
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
+
+    // 创建并设置本地描述（Answer）
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    // 发送 Answer 给主叫
+    const answerEvent = {
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now()/1000),
+        kind: 1,
+        tags: [["t","room10008"], ["call","answer"]],
+        content: JSON.stringify({
+            type:'answer',
+            sdp: answer.sdp,
+            answerType: answer.type,
+            username: window.username
+        })
+    };
+    send(answerEvent);
 }
 
 function endCall(isCaller=false){

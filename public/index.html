@@ -521,7 +521,7 @@ async function startCall(isIncoming = false) {
         alert("凭证已过期，请重新获取");
         return;
     }
-    if (!peerConnection) {
+    if (!peerConnection || peerConnection.signalingState === "closed") {
         await initPeerConnection();
     }
   const callOverlay = document.createElement('div');

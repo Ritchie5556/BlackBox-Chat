@@ -459,6 +459,7 @@ socket.onmessage = async (e) => {
           pubkey,
           username,
           avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
+          online: true,  
           lastSeen: Date.now()
         });
       } else {
@@ -579,7 +580,9 @@ async function initPeerConnection() {
   };
 }
 function getOnlineUsers() {
-    return participants.filter(p => p.pubkey !== window.myPubKey && p.online && (Date.now() - p.lastSeen) < 60*1000);
+    return participants.filter(
+        p => p.pubkey !== window.myPubKey && p.online
+    );
 }
 async function startCall(isIncoming = false) {
     if (isCalling) return;

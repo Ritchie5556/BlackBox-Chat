@@ -406,10 +406,11 @@ socket.onmessage = async (e) => {
           const signal = JSON.parse(event.content);
          if(signal.type === "offer" && !isCalling){
              window.incomingOffer = signal.offer;
+              window.incomingOffer = { type: signal.offerType, sdp: signal.sdp };//必须有sdp
              startCall(true); // 被叫
              alert(`${signal.username} 发起了语音通话`);
          } else if(signal.type === "answer") {
-            peerConnection.setRemoteDescription(new RTCSessionDescription(signal.answer));
+            peerConnection.setRemoteDescription(new RTCSessionDescription({ type: signal.answerType, sdp: signal.sdp }));
          } else if(signal.type === "ice" && signal.candidate){
            peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
          }
@@ -468,40 +469,43 @@ function log(message, type="other"){
 let localStream, peerConnection, isCalling = false;
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-function startCall(isIncoming=false){
+async function startCall(isIncoming=false){
   if(isCalling) return;
-  //电话聊天之前先判断聊天室里的人数
+
   if (participants.length <= 1) { 
     alert("当前聊天室只有你一个人，无法发起通话"); 
     return; 
   }
-  const now=Math.floor(Date.now()/1000)//时间
+
+  const now = Math.floor(Date.now()/1000);
   if (!window.credential || now > window.credential.expireAt) {
     alert("凭证已过期，请重新进入聊天室");
     return;
   }
-  alert(partnerInfo.online)
-  if(!partnerInfo.online){ 
+
+  if(isIncoming && !partnerInfo.online){ 
      alert("对方不在线，无法通话"); 
      return; 
   }
+
   isCalling = true;
 
+  // UI 弹窗
   const callOverlay = document.createElement('div');
   callOverlay.id = 'callOverlay';
   Object.assign(callOverlay.style,{
-    position:'fixed',top:0,left:0,width:'100%',height:'100%',
-    background:'rgba(255,255,255,0.2)',backdropFilter:'blur(10px)',
-    display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',
+    position:'fixed', top:0, left:0, width:'100%', height:'100%',
+    background:'rgba(255,255,255,0.2)', backdropFilter:'blur(10px)',
+    display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center',
     zIndex:9999
   });
 
   const status = document.createElement('div');
   status.id = 'callStatus';
   status.innerText = isIncoming 
-  ? `${partnerInfo.username} 来电` 
-  : '正在等待对方接听...';
-  Object.assign(status.style,{marginBottom:'20px',color:'#fff',fontSize:'20px'});
+    ? `${partnerInfo.username} 来电` 
+    : '正在等待对方接听...';
+  Object.assign(status.style,{marginBottom:'20px', color:'#fff', fontSize:'20px'});
   callOverlay.appendChild(status);
 
   const audio = document.createElement('audio');
@@ -512,12 +516,12 @@ function startCall(isIncoming=false){
 
   const hangupBtn = document.createElement('button');
   hangupBtn.innerText = '📞挂断';
-  Object.assign(hangupBtn.style,{background:'red',color:'#fff',marginRight:'20px',padding:'10px 20px'});
+  Object.assign(hangupBtn.style,{background:'red', color:'#fff', marginRight:'20px', padding:'10px 20px'});
   hangupBtn.onclick = () => endCall(true);
 
   const acceptBtn = document.createElement('button');
   acceptBtn.innerText = '📞接听';
-  Object.assign(acceptBtn.style,{background:'green',color:'#fff',padding:'10px 20px'});
+  Object.assign(acceptBtn.style,{background:'green', color:'#fff', padding:'10px 20px'});
   acceptBtn.onclick = acceptCall;
 
   const btnContainer = document.createElement('div');
@@ -529,52 +533,68 @@ function startCall(isIncoming=false){
 
   document.body.appendChild(callOverlay);
 
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-    localStream = stream;
-    peerConnection = new RTCPeerConnection(config);
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  // 获取本地音频
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  localStream = stream;
+  peerConnection = new RTCPeerConnection(config);
+  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-    peerConnection.ontrack = e => {
-      let remoteAudio = document.getElementById('remoteAudio');
-      if(!remoteAudio){
-        remoteAudio = document.createElement('audio');
-        remoteAudio.id = 'remoteAudio';
-        remoteAudio.autoplay = true;
-        document.body.appendChild(remoteAudio);
-      }
-      remoteAudio.srcObject = e.streams[0];
-    };
+  // 监听远程流
+  peerConnection.ontrack = e => {
+    let remoteAudio = document.getElementById('remoteAudio');
+    if(!remoteAudio){
+      remoteAudio = document.createElement('audio');
+      remoteAudio.id = 'remoteAudio';
+      remoteAudio.autoplay = true;
+      document.body.appendChild(remoteAudio);
+    }
+    remoteAudio.srcObject = e.streams[0];
+  };
 
-    peerConnection.onicecandidate = e => {
-      if(e.candidate){
-        // ice
-         const iceEvent = {
-           pubkey: window.myPubKey,
-           created_at: Math.floor(Date.now()/1000),
-           kind: 1,
-           tags: [["t","room10008"], ["call","ice"]],
-           content: JSON.stringify({ type:'ice', candidate:e.candidate })
-      };
-        send(iceEvent);
-      }
-    };
-
-    if(!isIncoming){
-      peerConnection.createOffer().then(offer => {
-        peerConnection.setLocalDescription(offer);
-        // 通过聊天室发送 offer
-        const callEvent = {
-           pubkey: window.myPubKey,
-           created_at: Math.floor(Date.now()/1000),
-           kind: 1,
-           tags: [["t","room10008"], ["call","offer"]], 
-           content: JSON.stringify({ type: 'offer', offer, username: window.username })
-       };
-          send(callEvent); 
+  // 监听 ICE candidate
+  peerConnection.onicecandidate = e => {
+    if(e.candidate){
+      send({
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now()/1000),
+        kind: 1,
+        tags: [["t","room10008"], ["call","ice"]],
+        content: JSON.stringify({ type:'ice', candidate:e.candidate })
       });
     }
-  });
+  };
+
+  if(isIncoming){
+    // —— 被叫流程 —— 
+    if(window.incomingOffer){
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      // 发送 answer
+      send({
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now()/1000),
+        kind: 1,
+        tags: [["t","room10008"], ["call","answer"]],
+        content: JSON.stringify({ type:'answer', sdp: answer.sdp, answerType: answer.type, username: window.username })
+      });
+    }
+  } else {
+    // —— 主叫流程 —— 
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+
+    send({
+      pubkey: window.myPubKey,
+      created_at: Math.floor(Date.now()/1000),
+      kind: 1,
+      tags: [["t","room10008"], ["call","offer"]], 
+      content: JSON.stringify({ type:'offer', sdp: offer.sdp, offerType: offer.type, username: window.username })
+    });
+  }
 }
+
 
 function acceptCall(){
   const callStatus = document.getElementById('callStatus');
@@ -590,7 +610,7 @@ function acceptCall(){
            created_at: Math.floor(Date.now()/1000),
            kind: 1,
            tags: [["t","room10008"], ["call","answer"]],
-           content: JSON.stringify({ type:'answer', answer, username: window.username })
+           content: JSON.stringify({ type:'answer', sdp: answer.sdp, answerType: answer.type, username: window.username })
      };
         send(answerEvent);
     });

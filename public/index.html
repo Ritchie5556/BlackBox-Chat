@@ -489,7 +489,47 @@ async function startCall(isIncoming = false) {
         alert("凭证已过期，请重新获取");
         return;
     }
+      const callOverlay = document.createElement('div');
+  callOverlay.id = 'callOverlay';
+  Object.assign(callOverlay.style,{
+    position:'fixed',top:0,left:0,width:'100%',height:'100%',
+    background:'rgba(255,255,255,0.2)',backdropFilter:'blur(10px)',
+    display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',
+    zIndex:9999
+  });
 
+  const status = document.createElement('div');
+  status.id = 'callStatus';
+  status.innerText = isIncoming 
+  ? `${partnerInfo.username} 来电` 
+  : '正在等待对方接听...';
+  Object.assign(status.style,{marginBottom:'20px',color:'#fff',fontSize:'20px'});
+  callOverlay.appendChild(status);
+
+  const audio = document.createElement('audio');
+  audio.src = 'sound/DaDaDum - The Soundlings.mp3';
+  audio.loop = true;
+  audio.autoplay = true;
+  callOverlay.appendChild(audio);
+
+  const hangupBtn = document.createElement('button');
+  hangupBtn.innerText = '📞挂断';
+  Object.assign(hangupBtn.style,{background:'red',color:'#fff',marginRight:'20px',padding:'10px 20px'});
+  hangupBtn.onclick = () => endCall(true);
+
+  const acceptBtn = document.createElement('button');
+  acceptBtn.innerText = '📞接听';
+  Object.assign(acceptBtn.style,{background:'green',color:'#fff',padding:'10px 20px'});
+  acceptBtn.onclick = acceptCall;
+
+  const btnContainer = document.createElement('div');
+  btnContainer.style.display = 'flex';
+  btnContainer.style.gap = '20px';
+  if(isIncoming) btnContainer.appendChild(acceptBtn);
+  btnContainer.appendChild(hangupBtn);
+  callOverlay.appendChild(btnContainer);
+
+  document.body.appendChild(callOverlay);
     const callStatus = document.getElementById('callStatus');
     callStatus.innerText = '正在建立通话...';
 

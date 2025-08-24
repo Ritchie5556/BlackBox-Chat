@@ -378,7 +378,7 @@
               name: window.name
             })
           }));
-          alert(`${data.name}` 发起了语音通话);
+          alert(`${data.name} 发起了语音通话`);
         }
         break;
 
@@ -432,7 +432,7 @@
         log(${user.username} 加入了聊天室, "system");
       } else if (statusTag[1] === "LEAVE") {
         participants = participants.filter(p => p.pubkey !== pubkey);
-        log(`${user.username}` 离开了聊天室, "system");
+        log(`${user.username} 离开了聊天室`, "system");
         return;
       }
     }

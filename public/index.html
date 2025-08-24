@@ -889,9 +889,9 @@
     const seconds = elapsedSeconds % 60;
     
     // 更新显示
-    timerElement.innerText = 
-      ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')};
-  }
+   timerElement.innerText = 
+  `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
 
   // 停止通话计时器
   function stopCallTimer() {

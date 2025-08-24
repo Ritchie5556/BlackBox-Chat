@@ -591,7 +591,7 @@
     const logDiv = document.getElementById("log");
     if(!logDiv) return; 
     const msgDiv = document.createElement("div");
-    msgDiv.className = msg ${type};
+    msgDiv.className = `msg ${type}`;
     msgDiv.textContent = message;
     logDiv.appendChild(msgDiv);
     logDiv.scrollTop = logDiv.scrollHeight;

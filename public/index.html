@@ -304,7 +304,12 @@ async function send(eventobj=null) {
  }
   function announceJoin() {
   // 先把自己加进在线列表
-  participants.push(window.myPubKey);
+  participants.push({
+    pubkey: window.myPubKey,
+    username: window.name,
+    avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
+    lastSeen: Date.now()
+  });
   console.log("你已加入聊天室，当前人数：",  participants.length);
 
   // 广播 JOIN 消息，让别人知道你上线了
@@ -451,7 +456,7 @@ function handleEvent(event) {
     participants.push(user);
     console.log("新用户加入：", user);
   }
-
+  console.log("当前在线人数：", participants.filter(p => p).length);
   console.log("收到消息来自：", user.pubkey, "内容：", event.content);
 }
 

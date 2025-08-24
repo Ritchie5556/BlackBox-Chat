@@ -201,13 +201,13 @@ generateCredential();
  function toHex(bytes) {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
-window.username = "";   
+window.name = "";   
 window.onload = () => {
   let name = "";
   do {
     name = prompt("请输入你的昵称:");
   } while(!name || name.trim() === "");
-  window.username = name;  
+  window.name = name;  
 };
 const partnerAvatar = document.getElementById("partnerAvatar");//头像
 const partnerName = document.getElementById("partnerName");
@@ -215,9 +215,9 @@ const logDiv = document.getElementById("log");
 const socket = new WebSocket("wss://relay.damus.io");
 
 let myRoom = null;
-let partnerInfo = { username: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
+let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
 let emojis = [];
-const myUsersMap = {}; // pubkey → 用户名映射
+const mysMap = {}; // pubkey → 用户名映射
 //状态判断
 function setPartnerStatus(state){
   const circle = document.getElementById("statusCircle");
@@ -313,7 +313,7 @@ async function send(eventobj=null) {
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
     tags: [["t", "room10008"], ["status", "JOIN"]],
-    content: window.username + " 加入了聊天室"
+    content: window.name + " 加入了聊天室"
   });
 }
 // -------------------- 聊天功能 --------------------
@@ -324,7 +324,7 @@ socket.onopen = () => {
   setPartnerStatus("online")//加入聊天室后，默认在线状态
   console.log("当前状态:",setPartnerStatus("online"))
   document.getElementById("sendBtn").disabled = false;
-  //socket.send(JSON.stringify({ system: true, join: true, username, avatar: "", requestRoom: true }));
+  //socket.send(JSON.stringify({ system: true, join: true, name, avatar: "", requestRoom: true }));
   socket.send(
     JSON.stringify(
       [
@@ -343,12 +343,12 @@ socket.onopen = () => {
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
     tags: [["t", "room10008"]],
-    content:`${window.username} 加入了聊天室`
+    content:`${window.name} 加入了聊天室`
   };
-  myUsersMap[window.myPubKey] = window.username; // 保存映射
+  mysMap[window.myPubKey] = window.name; // 保存映射
   participants.push({
     pubkey: window.myPubKey,
-    username: window.username,
+    name: window.name,
     avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
     lastSeen: Date.now()
   });
@@ -367,10 +367,10 @@ async function handleSignal(data) {
         ws.send(JSON.stringify({
           type: "answer",
           answer,
-          username: window.username
+          name: window.name
         }));
 
-        alert(`${data.username} 发起了语音通话`);
+        alert(`${data.name} 发起了语音通话`);
       }
       break;
 
@@ -404,13 +404,13 @@ function handleEvent(event) {
        participants.push(window.myPubKey);
        console.log("你已加入聊天室，当前人数：", participants.length);
      } else if (statusTag[1] === "LEAVE") {
-       onlineUsers.delete(event.pubkey);
+       onlines.delete(event.pubkey);
     }
       console.log("当前聊天室人数：", participants.length);
   }
   const pubkey = event.pubkey;
   const isMe = pubkey === window.myPubKey;
-  const username = isMe ? window.username : (myUsersMap[pubkey] || pubkey.slice(0, 8));
+  const name = isMe ? window.name : (myUsersMap[pubkey] || pubkey.slice(0, 8));
 
   if (event.content.includes("加入了聊天室")) {
     log(`${username} 已加入房间`, "system");
@@ -426,6 +426,12 @@ function handleEvent(event) {
   if (user){
     user.lastSeen = Date.now();
   }
+  if (!user) {
+    user = { pubkey: event.pubkey, name: "未知用户" };
+    users.push(user);
+    console.log("新用户加入：", user);
+  }
+   console.log("收到消息来自：", user.pubkey, "内容：", event.content);
 }
 
 socket.onmessage = async (e) => {
@@ -615,12 +621,12 @@ async function initPeerConnection() {
   };
 }
 function getOnlineUsers() {
-    return participants.filter(
-        p => p.pubkey !== window.myPubKey && p.online
-    );
+     return onlineUsers.filter(u => u && u.pubkey && u.pubkey !== myPubkey);
 }
 async function startCall(isIncoming = false) {
     console.log("发起通话，isIncoming:", isIncoming);
+     console.log("当前在线用户列表:", onlineUsers);
+    console.log("过滤后的其他用户:", getOnlineUsers());
     if (isCalling) return;
     const onlineUsers = getOnlineUsers();
     if (participants.length  === 0) {

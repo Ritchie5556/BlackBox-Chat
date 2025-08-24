@@ -222,9 +222,7 @@
     console.log("凭证生成:", credential);
   }
   generateCredential();
-</script>
 
-<script>
   function toHex(bytes) {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
@@ -445,17 +443,16 @@
     
     // 处理普通消息
     if (event.content && !event.content.includes("加入了聊天室") && !event.content.includes("离开了聊天室")) {
-      log(`${user.username}: ${event.content}`, isMe ? "me" : "other");
+      log(`${event.content}`, isMe ? "me" : "other");
     }
     
     // 更新partnerInfo（如果是对方）
     if (!isMe) {
       partnerInfo.pubkey = pubkey;
-      partnerInfo.username = user.username;
+      partnerInfo.username = event.content || user.username;  
+      partnerName.textContent = partnerInfo.username;
       partnerInfo.avatar = user.avatar;
       partnerInfo.online = true;
-      
-      partnerName.textContent = partnerInfo.username;
       partnerAvatar.src = partnerInfo.avatar;
       setPartnerStatus("online");
     }

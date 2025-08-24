@@ -372,16 +372,16 @@ async function handleSignal(data) {
         await peerConnection.setLocalDescription(answer);
 
         ws.send(JSON.stringify({
-          created_at: Math.floor(Date.now() / 1000),
-          kind: 1,
-          tags: [["t", "room10009"], ["call", "answer"]],
-          content: JSON.stringify({
-          type: "answer",
-          answer: answer,
-          name: window.name
-        });
-
-        alert(`${data.name} 发起了语音通话`);
+           created_at: Math.floor(Date.now() / 1000),
+           kind: 1,
+           tags: [["t", "room10009"], ["call", "answer"]],
+           content: JSON.stringify({
+           type: "answer",
+           answer: answer,
+           name: window.name
+         });
+       }));
+         alert(`${data.name} 发起了语音通话`);
       }
       break;
 

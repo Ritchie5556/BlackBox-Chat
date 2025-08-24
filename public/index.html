@@ -623,15 +623,16 @@ async function startCall(isIncoming = false) {
     console.log("发起通话，isIncoming:", isIncoming);
     if (isCalling) return;
     const onlineUsers = getOnlineUsers();
-    if (onlineUsers.length === 0) {
+    if (participants.length  === 0) {
         alert("当前聊天室没有其他在线用户，无法发起通话");
         return;
     }
     // 电话聊天之前先判断聊天室里的人数
-    if (participants.length  < 1) {
-        alert("当前聊天室只有你一个人，无法发起通话","system");
-        return;
-    }
+    // 临时跳过用户检查，方便调试
+    // if (onlineUsers.length <= 1) {
+    //     alert("当前聊天室没有其他在线用户，无法发起通话");
+    //     return;
+    // }
 
     const now = Math.floor(Date.now() / 1000);
     if (!window.credential || now > window.credential.expireAt) {
@@ -672,7 +673,7 @@ async function startCall(isIncoming = false) {
   const acceptBtn = document.createElement('button');
   acceptBtn.innerText = '📞接听';
   Object.assign(acceptBtn.style,{background:'green',color:'#fff',padding:'10px 20px'});
-  acceptBtn.onclick = acceptCall;
+ acceptBtn.onclick = () => acceptCall();
 
   const btnContainer = document.createElement('div');
   btnContainer.style.display = 'flex';

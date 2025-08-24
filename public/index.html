@@ -280,7 +280,7 @@ async function send(eventobj=null) {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10008"]],   // 指定聊天室标签
+    tags: [["t", "room10009"]],   // 指定聊天室标签
     content: msg
     };
 
@@ -317,7 +317,7 @@ async function send(eventobj=null) {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10008"], ["status", "JOIN"]],
+    tags: [["t", "room10009"], ["status", "JOIN"]],
     content: window.name + " 加入了聊天室"
   });
 }
@@ -337,7 +337,7 @@ socket.onopen = () => {
         "sub1",
         { 
           kinds:[1],
-          "#t": ["room10008"] 
+          "#t": ["room10009"] 
         }
       ]
     )
@@ -347,7 +347,7 @@ socket.onopen = () => {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10008"]],
+    tags: [["t", "room10009"]],
     content:`${window.name} 加入了聊天室`
   };
   mysMap[window.myPubKey] = window.name; // 保存映射
@@ -641,7 +641,7 @@ async function initPeerConnection() {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10008"], ["call", "ice"]],
+        tags: [["t", "room10009"], ["call", "ice"]],
         content: JSON.stringify({ type: "ice", candidate: event.candidate })
       });
     }
@@ -749,7 +749,7 @@ async function startCall(isIncoming = false) {
             pubkey: window.myPubKey,
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10008"], ["call", "offer"]],
+            tags: [["t", "room10009"], ["call", "offer"]],
             content: JSON.stringify({ type: 'offer', sdp: offer.sdp, offerType: offer.type, username: window.username })
         });
 
@@ -780,7 +780,7 @@ async function acceptCall() {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now()/1000),
         kind: 1,
-        tags: [["t","room10008"], ["call","answer"]],
+        tags: [["t","room10009"], ["call","answer"]],
         content: JSON.stringify({
             type:'answer',
             sdp: answer.sdp,

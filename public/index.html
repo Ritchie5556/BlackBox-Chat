@@ -653,7 +653,7 @@ async function startCall(isIncoming = false) {
    console.log("当前在线用户:",users);
     if (isCalling) return;
       const onlineUsers = participants.filter(
-         p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 60 * 1000
+         p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 100*60 * 1000
       );
   console.log("当前在线用户:", onlineUsers);
     if (onlineUsers.length  === 0) {

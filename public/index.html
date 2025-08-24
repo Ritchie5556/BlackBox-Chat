@@ -798,7 +798,7 @@
     const status = document.createElement('div');
     status.id = 'callStatus';
     status.innerText = isIncoming 
-      ? ${partnerInfo.username} 来电 
+      ? `${partnerInfo.username} 来电` 
       : '正在等待对方接听...';
     Object.assign(status.style, {
       marginBottom: '20px', 

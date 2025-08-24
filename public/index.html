@@ -471,7 +471,16 @@ socket.onmessage = async (e) => {
   try {
     const data = JSON.parse(e.data);
     console.log("收到:", e.data);
+    const pubkey = data.pubkey;
+      if (!pubkey) return;
 
+  // 更新在线用户映射
+  if (!mysMap[pubkey]) {
+    mysMap[pubkey] = data.username || pubkey.slice(0, 8); 
+  }
+
+  // 打印调试
+  console.log("当前在线用户:", Object.values(mysMap));
     // 1. Relay 确认/结束消息
     if (Array.isArray(data)) {
       if (data[0] === "OK") {

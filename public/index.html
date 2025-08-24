@@ -378,7 +378,7 @@
               name: window.name
             })
           }));
-          alert(${data.name} 发起了语音通话);
+          alert(`${data.name}` 发起了语音通话);
         }
         break;
 
@@ -432,14 +432,14 @@
         log(${user.username} 加入了聊天室, "system");
       } else if (statusTag[1] === "LEAVE") {
         participants = participants.filter(p => p.pubkey !== pubkey);
-        log(${user.username} 离开了聊天室, "system");
+        log(`${user.username}` 离开了聊天室, "system");
         return;
       }
     }
     
     // 处理普通消息
     if (event.content && !event.content.includes("加入了聊天室") && !event.content.includes("离开了聊天室")) {
-      log(${event.content}, isMe ? "me" : "other");
+      log(`${event.content}`, isMe ? "me" : "other");
     }
     
     // 更新partnerInfo（如果是对方）
@@ -499,7 +499,7 @@
                 
                 // 显示来电界面
                 showCallOverlay(true); // 显示被叫界面
-                alert(${partnerInfo.username} 发起了语音通话);
+                alert(`${partnerInfo.username}` 发起了语音通话);
                 return;
               }
               

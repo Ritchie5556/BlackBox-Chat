@@ -269,7 +269,7 @@ async function send(eventobj=null) {
       socket.send(JSON.stringify(["EVENT", eventobj]));
       return;
     } else {
-      log("⚠️ 信令发送失败，WebSocket未连接", "system");
+      log("信令发送失败，WebSocket未连接", "system");
       return;
     }
   }
@@ -279,17 +279,19 @@ async function send(eventobj=null) {
    if (!msg) return;
    if(socket.readyState === WebSocket.OPEN){
    const eventobj = {
+    id:"", 
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10009"]],   // 指定聊天室标签
+    tags: [["t", "room10009"]],   
     content: msg
     };
 
    // 计算 id
    const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
-   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
-   eventobj.id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+   const serialized = JSON.stringify(payload);
+   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized);
+   eventobj.id = toHex(new Uint8Array(hash));
   // 签名
    const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
    eventobj.sig = toHex(sig);
@@ -304,7 +306,8 @@ async function send(eventobj=null) {
   }
  }
  }
-  function announceJoin() {
+  
+  function announceJoin(sername, pubkey, avatar) {
   // 先把自己加进在线列表
   participants.push({
     pubkey: window.myPubKey,
@@ -371,7 +374,7 @@ async function handleSignal(data) {
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
 
-        ws.send(JSON.stringify({
+        socket.send(JSON.stringify({
            created_at: Math.floor(Date.now() / 1000),
            kind: 1,
            tags: [["t", "room10009"], ["call", "answer"]],
@@ -407,63 +410,54 @@ async function handleSignal(data) {
       break;
   }
 }
+// 用户管理逻辑
 function handleEvent(event) {
   const tags = event.tags || [];
   const statusTag = tags.find(t => t[0] === "status");
-
-  if (statusTag) {
-    if (statusTag[1] === "JOIN") {
-      if (!participants.find(p => p.pubkey === event.pubkey)) {
-        participants.push({
-          pubkey: event.pubkey,
-          username: event.pubkey === window.myPubKey ? window.name : event.pubkey.slice(0, 8),
-          avatar: "https://robohash.org/" + event.pubkey,
-          lastSeen: Date.now()
-        });
-      }
-      console.log("用户加入聊天室:", event.pubkey, "当前人数：", participants.length);
-    } else if (statusTag[1] === "LEAVE") {
-      participants = participants.filter(p => p.pubkey !== event.pubkey);
-      console.log("用户离开聊天室:", event.pubkey, "当前人数：", participants.length);
-    }
-  }
-
   const pubkey = event.pubkey;
   const isMe = pubkey === window.myPubKey;
-  const username = isMe ? window.name : (participants.find(p => p.pubkey === pubkey)?.username || pubkey.slice(0, 8));
-
-  // 系统提示：有人加入
-  if (event.content.includes("加入了聊天室")) {
-    log(`${username} 已加入房间`, "system");
-    if (!participants.find(p => p.pubkey === pubkey)) {
-      participants.push({
-        pubkey,
-        username,
-        avatar: "https://robohash.org/" + pubkey,
-        lastSeen: Date.now()
-      });
-    }
-    return;
-  }
-
-  // 普通消息
-  log(`${event.content}`, isMe ? "me" : "other");
-
+  
+  // 获取或创建用户信息
   let user = participants.find(p => p.pubkey === pubkey);
-  if (user) {
-    user.lastSeen = Date.now();
-  } else {
+  if (!user) {
     user = {
-      pubkey,
-      username: pubkey.slice(0, 8),
+      pubkey: pubkey,
+      username: isMe ? window.name : pubkey.slice(0, 8),
       avatar: "https://robohash.org/" + pubkey,
       lastSeen: Date.now()
     };
     participants.push(user);
-    console.log("新用户加入：", user);
+  } else {
+    user.lastSeen = Date.now();
   }
-  console.log("当前在线人数：", participants.filter(p => p).length);
-  console.log("收到消息来自：", user.pubkey, "内容：", event.content);
+  
+  // 处理状态标签
+  if (statusTag) {
+    if (statusTag[1] === "JOIN") {
+      log(`${user.username} 加入了聊天室`, "system");
+    } else if (statusTag[1] === "LEAVE") {
+      participants = participants.filter(p => p.pubkey !== pubkey);
+      log(`${user.username} 离开了聊天室`, "system");
+      return;
+    }
+  }
+  
+  // 处理普通消息
+  if (event.content && !event.content.includes("加入了聊天室") && !event.content.includes("离开了聊天室")) {
+    log(`${user.username}: ${event.content}`, isMe ? "me" : "other");
+  }
+  
+  // 更新partnerInfo（如果是对方）
+  if (!isMe) {
+    partnerInfo.pubkey = pubkey;
+    partnerInfo.username = user.username;
+    partnerInfo.avatar = user.avatar;
+    partnerInfo.online = true;
+    
+    partnerName.textContent = partnerInfo.username;
+    partnerAvatar.src = partnerInfo.avatar;
+    setPartnerStatus("online");
+  }
 }
 
 
@@ -471,17 +465,8 @@ socket.onmessage = async (e) => {
   try {
     const data = JSON.parse(e.data);
     console.log("收到:", e.data);
-    const pubkey = data.pubkey;
-      if (!pubkey) return;
-
-  // 更新在线用户映射
-  if (!mysMap[pubkey]) {
-    mysMap[pubkey] = data.username || pubkey.slice(0, 8); 
-  }
-
-  // 打印调试
-  console.log("当前在线用户:", Object.values(mysMap));
-    // 1. Relay 确认/结束消息
+    
+    // 1. 处理数组格式的消息 (Nostr协议标准格式)
     if (Array.isArray(data)) {
       if (data[0] === "OK") {
         console.log("Relay确认:", data);
@@ -492,133 +477,96 @@ socket.onmessage = async (e) => {
         return;
       }
       if (data[0] === "EVENT") {
-        handleEvent(data[2]);  //  聊天室/事件消息
-        return;
-      } 
-    }
-
-    // 2. Relay 推送的 EVENT
-    if (Array.isArray(data) && data[0] === "EVENT") {
-      const event = data[2];
-      if (!event) return;
-
-      const pubkey = event.pubkey;
-      const isMe = pubkey === window.myPubKey;
-      const username = isMe ? window.username : (myUsersMap[pubkey] || pubkey.slice(0, 8));
-
-      // 如果是新用户，尝试从 content 里提取用户名
-      if (!myUsersMap[pubkey]) {
-        const match = event.content.match(/^(.+) 加入了聊天室$/);
-        if (match) {
-          myUsersMap[pubkey] = match[1];
+        const event = data[2];
+        if (!event || !event.pubkey) return;
+        
+        // 更新用户映射
+        if (!mysMap[event.pubkey]) {
+          mysMap[event.pubkey] = event.username || event.pubkey.slice(0, 8); 
         }
-      }
-
-      // 加入房间提示
-      if (event.content.includes("加入了聊天室")) {
-        const joinedName = myUsersMap[pubkey] || "未知用户";
-        log(`${joinedName} 已加入房间`, "system");
-
-        // 把用户加入 participants
-        if (!participants.find(p => p.pubkey === pubkey)) {
-          participants.push({
-            pubkey,
-            username: joinedName,
-            avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
-            lastSeen: Date.now()
-          });
-        }else{
-            user.lastSeen = Date.now();
-        }
-      }
-
-      // 普通消息
-      log(`${event.content}`, isMe ? "me" : "other");
-
-      // 更新 participants 活跃时间
-      let user = participants.find(p => p.pubkey === pubkey);
-      if (!user) {
-        participants.push({
-          pubkey,
-          username,
-          avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
-          online: true,  
-          lastSeen: Date.now()
-        });
-      } else {
-        user.online = true; 
-        user.lastSeen = Date.now();
-      }
-
-      // 更新 partnerInfo（只更新别人）
-      if (!isMe) {
-        partnerInfo.pubkey = pubkey;
-        partnerInfo.username = username;
-        partnerInfo.avatar = event.avatar|| "默认头像URL或空字符串";
-        partnerInfo.online = true;
-
-        partnerName.textContent = partnerInfo.username;
-        partnerAvatar.src = partnerInfo.avatar || partnerAvatar.src;
-      }
-      if(event.tags?.some(t => t[0] === "call")){
-          const signal = JSON.parse(event.content);
-         if(signal.type === "offer" && !isCalling){
-             window.incomingOffer = { type: signal.offerType, sdp: signal.sdp };
-            if (signal.username) {
-                partnerInfo.username = signal.username;
+        
+        console.log("当前在线用户:", Object.values(mysMap));
+        
+        // 检查是否是通话相关事件
+        const callTag = event.tags?.find(t => t[0] === "call");
+        if (callTag) {
+          try {
+            const signal = JSON.parse(event.content);
+            
+            // 处理来电
+            if (callTag[1] === "offer" && !isCalling) {
+              window.incomingOffer = { type: "offer", sdp: signal.sdp };
+              partnerInfo.username = signal.username || "未知用户";
+              partnerName.textContent = partnerInfo.username;
+              
+              // 显示来电界面
+              startCall(true);
+              alert(`${partnerInfo.username} 发起了语音通话`);
+              return;
             }
-             startCall(true); // 被叫
-             alert(`${signal.username} 发起了语音通话`);
-         } else if(signal.type === "answer"&& peerConnection) {
-            peerConnection.setRemoteDescription(new RTCSessionDescription({ type: signal.type, sdp: signal.sdp }));
-         } else if(signal.type === "ice" && signal.candidate){
-           await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-         } else if (signal.type === "hangup") {
-            // 添加挂断处理
-            endCall(false);
+            
+            // 处理其他信令（answer、ice等）
+            if (peerConnection) {
+              if (callTag[1] === "answer") {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+              } else if (callTag[1] === "ice") {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+              } else if (callTag[1] === "hangup") {
+                endCall(false);
+              }
+            }
+            return;
+          } catch (err) {
+            console.error("解析通话信令失败", err);
+          }
         }
-     }
+        
+        // 处理普通事件
+        handleEvent(event);
         return;
+      }
     }
-
-    // 3. 系统消息（非数组）
+    
+    // 2. 处理非标准格式的消息（系统消息和旧版信令）
     if (data.system) {
       log(data.msg, "system");
       return;
     }
-
-    // 4. 信令消息（通话用）
+    
+    // 处理旧版信令格式（应该逐步迁移到使用Nostr事件的标准格式）
     if (data.type === 'offer' && !isCalling) {
       window.incomingOffer = data.offer;
       partnerInfo.username = data.username;
       partnerName.textContent = partnerInfo.username;
       partnerAvatar.src = data.avatar || partnerAvatar.src;
-      startCall(true); // 被叫
+      startCall(true);
       return;
     }
-
+    
     if (data.type === 'answer') {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      if (peerConnection) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      }
       return;
     }
-
+    
     if (data.type === 'ice' && data.candidate) {
       if (peerConnection) {
         await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
       }
       return;
     }
+    
     if (data.type) {
-      await handleSignal(data); 
+      await handleSignal(data);
       return;
     }
-
+    
   } catch (err) {
     console.error("解析失败", e.data, err);
     log("解析失败: " + e.data, "system");
   }
 };
-
 socket.onerror = () => log("❌ 连接出错", "system");
 
 function log(message, type="other"){
@@ -673,24 +621,14 @@ function getOnlineUsers() {
 }
 async function startCall(isIncoming = false) {
     console.log("发起通话，isIncoming:", isIncoming);
-   const users = getOnlineUsers();
-   console.log("当前在线用户:",users);
-    if (isCalling) return;
-      const onlineUsers = participants.filter(
+    const onlineUsers = participants.filter(
          p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 100*60 * 1000
-      );
-  console.log("当前在线用户:", onlineUsers);
+    );
+    console.log("当前在线用户:", onlineUsers);
     if (onlineUsers.length  === 0) {
         alert("当前聊天室没有其他在线用户，无法发起通话");
         return;
     }
-    // 电话聊天之前先判断聊天室里的人数
-    // 临时跳过用户检查，方便调试
-    // if (onlineUsers.length <= 1) {
-    //     alert("当前聊天室没有其他在线用户，无法发起通话");
-    //     return;
-    // }
-
     const now = Math.floor(Date.now() / 1000);
     if (!window.credential || now > window.credential.expireAt) {
         alert("凭证已过期，请重新获取");
@@ -699,6 +637,40 @@ async function startCall(isIncoming = false) {
     if (!peerConnection || peerConnection.signalingState === "closed") {
         await initPeerConnection();
     }
+    if (!isIncoming) {
+      // 创建并发送offer
+       const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      // 创建通话事件
+      const callEvent = {
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [["t", "room10009"], ["call", "offer"]],
+        content: JSON.stringify({
+        type: "offer",
+        sdp: offer.sdp,
+        username: window.name
+       })
+    };
+     // 计算事件ID和签名
+    const payload = [0, callEvent.pubkey, callEvent.created_at, callEvent.kind, callEvent.tags, callEvent.content];
+    const serialized = JSON.stringify(payload);
+    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+    callEvent.id = toHex(new Uint8Array(hash));
+    const sig = await nobleSchnorr.sign(callEvent.id, window.myPrivKey);
+    callEvent.sig = toHex(sig);
+    
+    // 发送通话事件
+    socket.send(JSON.stringify(["EVENT", callEvent]));
+    log("📞 已发送呼叫请求", "system");
+  }
+  
+  // 显示通话界面
+  showCallOverlay(isIncoming);
+  isCalling = true;
+
+  
   const callOverlay = document.createElement('div');
   callOverlay.id = 'callOverlay';
   Object.assign(callOverlay.style,{
@@ -752,28 +724,6 @@ async function startCall(isIncoming = false) {
   callUI.classList.remove("hidden");
   callUI.classList.add("flex");
   document.getElementById("callStatus").innerText = isIncoming ? "对方来电..." : "正在呼叫...";
-
-    if (isIncoming) {
-        // —— 被叫流程 —— 
-        if (window.incomingOffer) {
-            await acceptCall();
-        }
-    } else {
-        // —— 主叫流程 —— 
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-
-        // 发送 offer 给对方
-        send({
-            pubkey: window.myPubKey,
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 1,
-            tags: [["t", "room10009"], ["call", "offer"]],
-            content: JSON.stringify({ type: 'offer', sdp: offer.sdp, username: window.username })
-        });
-
-        log("📞 已发送呼叫请求", "system");
-    }
 }
 async function acceptCall() {
     if (!peerConnection) {
@@ -823,7 +773,7 @@ function endCall(isCaller=false){
 
   // 通知对方呼叫已取消
   if (isCaller && socket && socket.readyState  === WebSocket.OPEN) {
-    ws.send(JSON.stringify({
+    socket.send(JSON.stringify({
       type: "webrtc-hangup",
       from: username
     }));

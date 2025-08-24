@@ -310,7 +310,7 @@ async function send(eventobj=null) {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10010"]],   
+    tags: [["t", "room10011"]],   
     content: msg
     };
 
@@ -349,7 +349,7 @@ async function send(eventobj=null) {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10010"], ["status", "JOIN"]],
+    tags: [["t", "room10011"], ["status", "JOIN"]],
     content: window.name + " 加入了聊天室"
   });
 }
@@ -369,7 +369,7 @@ socket.onopen = () => {
         "sub1",
         { 
           kinds:[1],
-          "#t": ["room10010"] 
+          "#t": ["room10011"] 
         }
       ]
     )
@@ -379,7 +379,7 @@ socket.onopen = () => {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10010"]],
+    tags: [["t", "room10011"]],
     content:`${window.name} 加入了聊天室`
   };
   mysMap[window.myPubKey] = window.name; // 保存映射
@@ -404,7 +404,7 @@ async function handleSignal(data) {
         socket.send(JSON.stringify({
            created_at: Math.floor(Date.now() / 1000),
            kind: 1,
-           tags: [["t", "room10010"], ["call", "answer"]],
+           tags: [["t", "room10011"], ["call", "answer"]],
            content: JSON.stringify({
            type: "answer",
            answer: answer,
@@ -542,10 +542,10 @@ socket.onmessage = async (e) => {
               if (callTag[1] === "answer") {
                  console.log("设置远程answer");
                  await peerConnection.setRemoteDescription(
-                    new RTCSessionDescription(
+                    new RTCSessionDescription({
                        type: "answer",
                        sdp: signal.sdp
-                    )
+                    })
                  );
               } else {
                     console.warn("忽略answer，当前状态不是have-local-offer:", peerConnection.signalingState);
@@ -590,7 +590,11 @@ socket.onmessage = async (e) => {
     
     if (data.type === 'answer') {
       if (peerConnection) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(
+            data.answer
+          )
+        );
       }
       return;
     }
@@ -678,7 +682,7 @@ async function initPeerConnection() {
           pubkey: window.myPubKey,
           created_at: Math.floor(Date.now() / 1000),
           kind: 1,
-          tags: [["t", "room10010"], ["call", "ice"]],
+          tags: [["t", "room10011"], ["call", "ice"]],
           content: JSON.stringify({ 
             type: "ice", 
             candidate: event.candidate 
@@ -766,7 +770,7 @@ async function startCall(isIncoming = false) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10010"], ["call", "offer"]],
+      tags: [["t", "room10011"], ["call", "offer"]],
       content: JSON.stringify({
         type: "offer",
         sdp: offer.sdp,
@@ -959,7 +963,7 @@ async function acceptCall() {
     pubkey: window.myPubKey,
     created_at: Math.floor(Date.now() / 1000),
     kind: 1,
-    tags: [["t", "room10010"], ["call", "answer"]],
+    tags: [["t", "room10011"], ["call", "answer"]],
     content: JSON.stringify({
       type: 'answer',
       sdp: answer.sdp,
@@ -995,7 +999,7 @@ function endCall(isCaller = false) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10010"], ["call", "hangup"]],
+      tags: [["t", "room10011"], ["call", "hangup"]],
       content: JSON.stringify({
         type: "hangup"
       })

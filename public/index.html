@@ -397,42 +397,64 @@ async function handleSignal(data) {
   }
 }
 function handleEvent(event) {
-   const tags = event.tags || [];
-   const statusTag = tags.find(t => t[0] === "status");
-   if (statusTag) {
-     if (statusTag[1] === "JOIN") {
-       participants.push(window.myPubKey);
-       console.log("你已加入聊天室，当前人数：", participants.length);
-     } else if (statusTag[1] === "LEAVE") {
-       onlines.delete(event.pubkey);
+  const tags = event.tags || [];
+  const statusTag = tags.find(t => t[0] === "status");
+
+  if (statusTag) {
+    if (statusTag[1] === "JOIN") {
+      if (!participants.find(p => p.pubkey === event.pubkey)) {
+        participants.push({
+          pubkey: event.pubkey,
+          username: event.pubkey === window.myPubKey ? window.name : event.pubkey.slice(0, 8),
+          avatar: "https://robohash.org/" + event.pubkey,
+          lastSeen: Date.now()
+        });
+      }
+      console.log("用户加入聊天室:", event.pubkey, "当前人数：", participants.length);
+    } else if (statusTag[1] === "LEAVE") {
+      participants = participants.filter(p => p.pubkey !== event.pubkey);
+      console.log("用户离开聊天室:", event.pubkey, "当前人数：", participants.length);
     }
-      console.log("当前聊天室人数：", participants.length);
   }
+
   const pubkey = event.pubkey;
   const isMe = pubkey === window.myPubKey;
-  const name = isMe ? window.name : (myUsersMap[pubkey] || pubkey.slice(0, 8));
+  const username = isMe ? window.name : (participants.find(p => p.pubkey === pubkey)?.username || pubkey.slice(0, 8));
 
+  // 系统提示：有人加入
   if (event.content.includes("加入了聊天室")) {
     log(`${username} 已加入房间`, "system");
     if (!participants.find(p => p.pubkey === pubkey)) {
-      participants.push({ pubkey, username, avatar: "xxx", lastSeen: Date.now() });
+      participants.push({
+        pubkey,
+        username,
+        avatar: "https://robohash.org/" + pubkey,
+        lastSeen: Date.now()
+      });
     }
     return;
   }
 
   // 普通消息
   log(`${event.content}`, isMe ? "me" : "other");
+
   let user = participants.find(p => p.pubkey === pubkey);
-  if (user){
+  if (user) {
     user.lastSeen = Date.now();
-  }
-  if (!user) {
-    user = { pubkey: event.pubkey, name: "未知用户" };
-    users.push(user);
+  } else {
+    user = {
+      pubkey,
+      username: pubkey.slice(0, 8),
+      avatar: "https://robohash.org/" + pubkey,
+      lastSeen: Date.now()
+    };
+    participants.push(user);
     console.log("新用户加入：", user);
   }
-   console.log("收到消息来自：", user.pubkey, "内容：", event.content);
+
+  console.log("收到消息来自：", user.pubkey, "内容：", event.content);
 }
+
 
 socket.onmessage = async (e) => {
   try {
@@ -621,16 +643,20 @@ async function initPeerConnection() {
   };
 }
 function getOnlineUsers() {
-  return participants.filter(p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 60 * 1000);
+  return participants.filter(
+    p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 60 * 1000
+  );
 }
 async function startCall(isIncoming = false) {
     console.log("发起通话，isIncoming:", isIncoming);
-    console.log("过滤后的其他用户:", getOnlineUsers());
    const users = getOnlineUsers();
    console.log("当前在线用户:",users);
     if (isCalling) return;
-    const onlineUsers = getOnlineUsers();
-    if (participants.length  === 0) {
+      const onlineUsers = participants.filter(
+         p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 60 * 1000
+      );
+  console.log("当前在线用户:", onlineUsers);
+    if (onlineUsers.length  === 0) {
         alert("当前聊天室没有其他在线用户，无法发起通话");
         return;
     }

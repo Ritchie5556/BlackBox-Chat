@@ -372,8 +372,12 @@ async function handleSignal(data) {
         await peerConnection.setLocalDescription(answer);
 
         ws.send(JSON.stringify({
+          created_at: Math.floor(Date.now() / 1000),
+          kind: 1,
+          tags: [["t", "room10009"], ["call", "answer"]],
+          content: JSON.stringify({
           type: "answer",
-          answer,
+          answer: answer,
           name: window.name
         }));
 
@@ -551,15 +555,19 @@ socket.onmessage = async (e) => {
           const signal = JSON.parse(event.content);
          if(signal.type === "offer" && !isCalling){
              window.incomingOffer = { type: signal.offerType, sdp: signal.sdp };
-             partnerInfo.username = signal.username;//必须有sdp
+            if (signal.username) {
+                partnerInfo.username = signal.username;
+            }
              startCall(true); // 被叫
              alert(`${signal.username} 发起了语音通话`);
-         } else if(signal.type === "answer") {
-            peerConnection.setRemoteDescription(new RTCSessionDescription({ type: signal.answerType, sdp: signal.sdp }));
+         } else if(signal.type === "answer"&& peerConnection) {
+            peerConnection.setRemoteDescription(new RTCSessionDescription({ type: signal.type, sdp: signal.sdp }));
          } else if(signal.type === "ice" && signal.candidate){
-           peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-         }
-         return;
+           await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+         } else if (signal.type === "hangup") {
+            // 添加挂断处理
+            endCall(false);
+        }
      }
         return;
     }
@@ -651,7 +659,7 @@ async function initPeerConnection() {
 }
 function getOnlineUsers() {
   return participants.filter(
-    p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 60 * 1000
+    p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 10*60 * 1000
   );
 }
 async function startCall(isIncoming = false) {
@@ -752,7 +760,7 @@ async function startCall(isIncoming = false) {
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
             tags: [["t", "room10009"], ["call", "offer"]],
-            content: JSON.stringify({ type: 'offer', sdp: offer.sdp, offerType: offer.type, username: window.username })
+            content: JSON.stringify({ type: 'offer', sdp: offer.sdp, username: window.username })
         });
 
         log("📞 已发送呼叫请求", "system");

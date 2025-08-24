@@ -140,6 +140,13 @@
   color: #fff;
   font-size: 20px;
 }
+#callTimer {
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff;
+  margin: 10px 0;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
 </style>
 </head>
 <body>
@@ -237,6 +244,9 @@ let myRoom = null;
 let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
 let emojis = [];
 const mysMap = {}; // pubkey → 用户名映射
+// 全局变量用于存储计时器
+let callTimerInterval = null;
+let callStartTime = null;
 //状态判断
 function setPartnerStatus(state){
   const circle = document.getElementById("statusCircle");
@@ -509,7 +519,11 @@ socket.onmessage = async (e) => {
         if (callTag) {
           try {
             const signal = JSON.parse(event.content);
-            
+            // 只处理来自对方的消息（排除自己发送的消息）
+            if (event.pubkey === window.myPubKey) {
+                console.log("忽略自己发送的信令消息");
+                return;
+            }
             // 处理来电
             if (callTag[1] === "offer" && !isCalling) {
               window.incomingOffer = { type: "offer", sdp: signal.sdp };
@@ -524,13 +538,27 @@ socket.onmessage = async (e) => {
             
             // 处理其他信令（answer、ice等）
             if (peerConnection) {
+                console.log("处理信令:", callTag[1], "当前状态:", peerConnection.signalingState);
               if (callTag[1] === "answer") {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-              } else if (callTag[1] === "ice") {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-              } else if (callTag[1] === "hangup") {
-                endCall(false);
-              }
+                 console.log("设置远程answer");
+                 await peerConnection.setRemoteDescription(
+                    new RTCSessionDescription(
+                       type: "answer",
+                       sdp: signal.sdp
+                    )
+                 );
+              } else {
+                    console.warn("忽略answer，当前状态不是have-local-offer:", peerConnection.signalingState);
+                 } if (peerConnection.remoteDescription) {
+                     console.log("添加ICE候选");
+                     await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                 } else {
+                     console.log("缓存ICE候选，等待远程描述");
+                     // 可以缓存ICE候选，等到有远程描述后再添加
+                 }else if (callTag[1] === "hangup") {
+                    console.log("收到挂断信令");
+                   endCall(false);
+                 }}
             }
             return;
           } catch (err) {
@@ -600,36 +628,99 @@ function log(message, type="other"){
 let localStream, peerConnection, isCalling = false;
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 async function initPeerConnection() {
-  peerConnection = new RTCPeerConnection(config);
-
-  // 获取本地音频流
-  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-  // 播放远端音频
-  peerConnection.ontrack = (event) => {
-    let remoteAudio = document.getElementById("remoteAudio");
-    if (!remoteAudio) {
-      remoteAudio = document.createElement("audio");
-      remoteAudio.id = "remoteAudio";
-      remoteAudio.autoplay = true;
-      document.body.appendChild(remoteAudio);
+  try {
+    // 如果已存在PeerConnection，先关闭它
+    if (peerConnection) {
+      peerConnection.close();
     }
-    remoteAudio.srcObject = event.streams[0];
-  };
+    
+    peerConnection = new RTCPeerConnection(config);
+    
+    // 添加状态监听
+    peerConnection.onconnectionstatechange = () => {
+      console.log("连接状态变化:", peerConnection.connectionState);
+    };
+    
+    peerConnection.onsignalingstatechange = () => {
+      console.log("信令状态变化:", peerConnection.signalingState);
+    };
+    
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log("ICE连接状态变化:", peerConnection.iceConnectionState);
+    };
+    
+    peerConnection.onicegatheringstatechange = () => {
+      console.log("ICE收集状态变化:", peerConnection.iceGatheringState);
+    };
 
-  // 处理 ICE 候选
-  peerConnection.onicecandidate = (event) => {
-    if (event.candidate) {
-      send({
-        pubkey: window.myPubKey,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 1,
-        tags: [["t", "room10010"], ["call", "ice"]],
-        content: JSON.stringify({ type: "ice", candidate: event.candidate })
-      });
+    // 获取本地音频流
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+    // 播放远端音频
+    peerConnection.ontrack = (event) => {
+      console.log("收到远端音轨");
+      let remoteAudio = document.getElementById("remoteAudio");
+      if (!remoteAudio) {
+        remoteAudio = document.createElement("audio");
+        remoteAudio.id = "remoteAudio";
+        remoteAudio.autoplay = true;
+        document.body.appendChild(remoteAudio);
+      }
+      remoteAudio.srcObject = event.streams[0];
+    };
+
+    // 处理 ICE 候选
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log("生成ICE候选");
+        const iceEvent = {
+          pubkey: window.myPubKey,
+          created_at: Math.floor(Date.now() / 1000),
+          kind: 1,
+          tags: [["t", "room10010"], ["call", "ice"]],
+          content: JSON.stringify({ 
+            type: "ice", 
+            candidate: event.candidate 
+          })
+        };
+        
+        // 计算事件ID和签名
+        const payload = [0, iceEvent.pubkey, iceEvent.created_at, iceEvent.kind, iceEvent.tags, iceEvent.content];
+        const serialized = JSON.stringify(payload);
+        const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+        iceEvent.id = toHex(new Uint8Array(hash));
+        const sig = await nobleSchnorr.sign(iceEvent.id, window.myPrivKey);
+        iceEvent.sig = toHex(sig);
+        
+        // 发送ICE候选事件
+        socket.send(JSON.stringify(["EVENT", iceEvent]));
+      } else {
+        console.log("ICE候选收集完成");
+      }
+    };
+    
+  } catch (err) {
+    console.error("初始化PeerConnection失败", err);
+    alert("初始化语音通话失败: " + err.message);
+    endCall(true);
+  }
+}
+// 添加一个函数来检查并恢复PeerConnection状态
+function checkAndResetPeerConnection() {
+  if (peerConnection) {
+    const state = peerConnection.signalingState;
+    console.log("当前PeerConnection状态:", state);
+    
+    // 如果状态不是stable，可能需要重置
+    if (state !== "stable") {
+      console.log("重置PeerConnection");
+      peerConnection.close();
+      peerConnection = null;
+      return false;
     }
-  };
+  }
+  return true;
 }
 function getOnlineUsers() {
   return participants.filter(
@@ -638,7 +729,10 @@ function getOnlineUsers() {
 }
 async function startCall(isIncoming = false) {
   console.log("发起通话，isIncoming:", isIncoming);
-  
+   // 检查并重置PeerConnection状态
+  if (!checkAndResetPeerConnection()) {
+    console.log("PeerConnection状态异常，已重置");
+  }
   // 检查在线用户
   const onlineUsers = participants.filter(
     p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 100 * 60 * 1000
@@ -734,7 +828,17 @@ function showCallOverlay(isIncoming) {
     fontSize: '20px'
   });
   callOverlay.appendChild(status);
-
+  // 添加通话计时器
+  const timer = document.createElement('div');
+  timer.id = 'callTimer';
+  timer.innerText = '00:00:00';
+  Object.assign(timer.style, {
+    marginBottom: '20px', 
+    color: '#fff', 
+    fontSize: '24px',
+    fontWeight: 'bold'
+  });
+  callOverlay.appendChild(timer);
   // 只在主叫方播放铃声
   if (!isIncoming) {
     const audio = document.createElement('audio');
@@ -772,7 +876,55 @@ function showCallOverlay(isIncoming) {
 
   document.body.appendChild(callOverlay);
 }
+// 启动通话计时器
+function startCallTimer() {
+  // 清除现有的计时器（如果有）
+  if (callTimerInterval) {
+    clearInterval(callTimerInterval);
+  }
+  
+  // 记录通话开始时间
+  callStartTime = new Date();
+  
+  // 更新计时器显示
+  updateCallTimer();
+  
+  // 每秒更新一次计时器
+  callTimerInterval = setInterval(updateCallTimer, 1000);
+}
 
+// 更新通话计时器显示
+function updateCallTimer() {
+  const timerElement = document.getElementById('callTimer');
+  if (!timerElement) return;
+  
+  // 计算通话时长（秒）
+  const now = new Date();
+  const elapsedSeconds = Math.floor((now - callStartTime) / 1000);
+  
+  // 格式化为HH:MM:SS
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+  
+  // 更新显示
+  timerElement.innerText = 
+    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// 停止通话计时器
+function stopCallTimer() {
+  if (callTimerInterval) {
+    clearInterval(callTimerInterval);
+    callTimerInterval = null;
+  }
+  
+  // 重置计时器显示
+  const timerElement = document.getElementById('callTimer');
+  if (timerElement) {
+    timerElement.innerText = '00:00:00';
+  }
+}
 async function acceptCall() {
   if (!peerConnection) {
     await initPeerConnection();
@@ -825,34 +977,69 @@ async function acceptCall() {
   
   // 发送应答事件
   socket.send(JSON.stringify(["EVENT", answerEvent]));
-  
+  // 启动通话计时器
+  startCallTimer();
   // 更新 UI
   if (callStatus) {
     callStatus.innerText = "通话中...";
   }
 }
 
-function endCall(isCaller=false){
-  if(peerConnection) {
+function endCall(isCaller = false) {
+  console.log("结束通话，isCaller:", isCaller);
+  // 停止通话计时器
+  stopCallTimer();
+  // 发送挂断信令
+  if (isCaller && socket && socket.readyState === WebSocket.OPEN) {
+    const hangupEvent = {
+      pubkey: window.myPubKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [["t", "room10010"], ["call", "hangup"]],
+      content: JSON.stringify({
+        type: "hangup"
+      })
+    };
+    
+    // 计算事件ID和签名
+    const payload = [0, hangupEvent.pubkey, hangupEvent.created_at, hangupEvent.kind, hangupEvent.tags, hangupEvent.content];
+    const serialized = JSON.stringify(payload);
+    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+    hangupEvent.id = toHex(new Uint8Array(hash));
+    const sig = await nobleSchnorr.sign(hangupEvent.id, window.myPrivKey);
+    hangupEvent.sig = toHex(sig);
+    
+    socket.send(JSON.stringify(["EVENT", hangupEvent]));
+  }
+  
+  // 关闭PeerConnection
+  if (peerConnection) {
     peerConnection.close();
     peerConnection = null;
   }
-  if(localStream) {
-    localStream.getTracks().forEach(track=>track.stop());
+  
+  // 停止本地流
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
     localStream = null;
   }
-
-  // 通知对方呼叫已取消
-  if (isCaller && socket && socket.readyState  === WebSocket.OPEN) {
-    socket.send(JSON.stringify({
-      type: "webrtc-hangup",
-      from: username
-    }));
-  }
-
+  
+  // 移除通话界面
   const overlay = document.getElementById('callOverlay');
-  if(overlay) overlay.remove();
+  if (overlay) {
+    overlay.remove();
+  }
+  
+  // 移除远端音频元素
+  const remoteAudio = document.getElementById("remoteAudio");
+  if (remoteAudio) {
+    remoteAudio.remove();
+  }
+  
   isCalling = false;
+  window.incomingOffer = null;
+  
+  log("通话已结束", "system");
 }
 </script>
 

@@ -147,6 +147,8 @@
   <button id="emojiBtn" onclick="toggleEmojiPanel()">😊</button>
   <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
+<!-- 通话浮层 -->
+<div id="callUI" class="hidden"></div>
 <script>
 </script> 
 <script type="module">
@@ -803,7 +805,7 @@ function endCall(isCaller=false){
   }
 
   // 通知对方呼叫已取消
-  if (isCaller && ws && ws.readyState === WebSocket.OPEN) {
+  if (isCaller && socket && socket.readyState  === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       type: "webrtc-hangup",
       from: username

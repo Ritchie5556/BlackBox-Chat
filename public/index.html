@@ -331,7 +331,7 @@
         socket.send(JSON.stringify(["EVENT", eventobj]));
         if(!eventobj.tags.some(t=>t[0]==="t")){
           document.getElementById("msg").value = "";
-          log(${msg}, "me"); 
+          log(`${msg}`, "me");
         }else {
         log("⚠️ 连接尚未建立或房间未分配", "system");
       }

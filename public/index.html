@@ -970,21 +970,20 @@
     }
   }
 
-  async function endCall(isCaller = false) {
+async function endCall(isCaller = false) {
     console.log("结束通话，isCaller:", isCaller);
+    
     // 停止通话计时器
     stopCallTimer();
-    
-    // 发送挂断信令
+
+    // 确保 WebSocket 和 PeerConnection 正常关闭
     if (isCaller && socket && socket.readyState === WebSocket.OPEN) {
       const hangupEvent = {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
         tags: [["t", "room10011"], ["call", "hangup"]],
-        content: JSON.stringify({
-          type: "hangup"
-        })
+        content: JSON.stringify({ type: "hangup" })
       };
       
       // 计算事件ID和签名
@@ -997,31 +996,31 @@
       
       socket.send(JSON.stringify(["EVENT", hangupEvent]));
     }
-    
+
     // 关闭PeerConnection
     if (peerConnection) {
       peerConnection.close();
       peerConnection = null;
     }
-    
+
     // 停止本地流
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
       localStream = null;
     }
-    
+
     // 移除通话界面
     const overlay = document.getElementById('callOverlay');
     if (overlay) {
       overlay.remove();
     }
-    
+
     // 移除远端音频元素
     const remoteAudio = document.getElementById("remoteAudio");
     if (remoteAudio) {
       remoteAudio.remove();
     }
-    
+
     isCalling = false;
     window.incomingOffer = null;
     

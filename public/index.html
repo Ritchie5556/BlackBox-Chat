@@ -161,7 +161,7 @@
       <span id="statusText">离线</span>
     </div>
   </div>
-  <button onclick="startCall()">📞</button>
+  <button onclick="startCall()" id="startCallBtn">📞</button>
 </div>
 
 <div id="log"></div>
@@ -176,6 +176,7 @@
 <div id="callUI" class="hidden"></div>
 
 <script type="module">
+  document.getElementById("startCallBtn").addEventListener("click", startCall);
   import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
   import { sha256 } from "https://esm.sh/@noble/hashes/sha256";
 

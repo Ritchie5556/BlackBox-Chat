@@ -309,7 +309,6 @@ window.onload = () => {
 };
 if (!window.myPubKey || !window.myPrivKey) {
   console.error("公钥或私钥未初始化！");
-  return;
 }
 async function send(eventobj = null) {
   const msgInput = document.getElementById("msg");

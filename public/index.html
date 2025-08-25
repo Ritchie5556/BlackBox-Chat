@@ -240,37 +240,40 @@ window.onload = () => {
   if (partnerName) {
     partnerName.textContent = window.name; 
   }
+  let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
   // 更新用户状态为在线
   setPartnerStatus("online");
-
+  console.log(partnerInfo);
+}
 
   const partnerAvatar = document.getElementById("partnerAvatar");//头像
   const logDiv = document.getElementById("log");
   const socket = new WebSocket("wss://relay.damus.io");
 
   let myRoom = null;
-  let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
   let emojis = [];
   const mysMap = {}; // pubkey → 用户名映射
   // 全局变量用于存储计时器
   let callTimerInterval = null;
   let callStartTime = null;
-  
   //状态判断
-  function setPartnerStatus(state){
+function setPartnerStatus(state) {
     const circle = document.getElementById("statusCircle");
     const text = document.getElementById("statusText");
     circle.className = "status-circle " + state;
     if(state === "online") {
-      text.textContent = "在线";
+        text.textContent = "在线";
+        partnerInfo.online = true;
     } else if(state === "offline") {
-      text.textContent = "离线"; 
+        text.textContent = "离线";
+        partnerInfo.online = false;
     } else if(state === "busy") {
-      text.textContent = "繁忙";   
+        text.textContent = "繁忙";
+        partnerInfo.online = true; 
     }
     partnerInfo.state = state;
     console.log("partnerInfo:", partnerInfo); 
-  }
+}
   
   // -------------------- 表情包 --------------------
   fetch('other/emojis.json')
@@ -302,7 +305,6 @@ window.onload = () => {
     const sendBtn = document.getElementById('sendBtn');
     sendBtn.disabled = !this.value.trim(); // 如果消息为空，禁用发送按钮
   });
-};
 
   async function send(eventobj = null) {
     const msgInput = document.getElementById("msg");

@@ -231,7 +231,8 @@
     do {
       name = prompt("请输入你的昵称:");
     } while(!name || name.trim() === "");
-    window.name = name;  
+      window.name = name; 
+      partnerName.textContent = window.name; 
   };
   
   const partnerAvatar = document.getElementById("partnerAvatar");//头像

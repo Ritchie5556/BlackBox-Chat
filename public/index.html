@@ -169,7 +169,7 @@
 <div class="input-area">
   <input id="msg" placeholder="输入消息..." />
   <button id="emojiBtn" onclick="toggleEmojiPanel()">😊</button>
-  <button id="sendBtn" onclick="send()" disabled>发送</button>
+  <button id="sendBtn"  disabled>发送</button>
 </div>
 
 <!-- 通话浮层 -->
@@ -300,10 +300,18 @@ function setPartnerStatus(state) {
     msgInput.focus();
   }
     // 新增的代码：监听消息输入框内容变化，禁用/启用发送按钮
-  document.getElementById('msg').addEventListener('input', function () {
-    const sendBtn = document.getElementById('sendBtn');
-    sendBtn.disabled = !this.value.trim(); // 如果消息为空，禁用发送按钮
+window.onload = () => {
+  const msgInput = document.getElementById("msg");
+  const sendBtn = document.getElementById("sendBtn");
+
+  // 输入框监听，控制按钮状态
+  msgInput.addEventListener("input", function () {
+    sendBtn.disabled = !this.value.trim();
   });
+
+  // 按钮点击事件
+  sendBtn.addEventListener("click", send);
+};
 
   async function send(eventobj = null) {
     const msgInput = document.getElementById("msg");

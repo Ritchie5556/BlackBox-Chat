@@ -243,13 +243,6 @@ window.onload = () => {
   // 更新用户状态为在线
   setPartnerStatus("online");
 
-  // 新增的代码：监听消息输入框内容变化，禁用/启用发送按钮
-  document.getElementById('msg').addEventListener('input', function () {
-    const sendBtn = document.getElementById('sendBtn');
-    sendBtn.disabled = !this.value.trim(); // 如果消息为空，禁用发送按钮
-  });
-};
-
 
   const partnerAvatar = document.getElementById("partnerAvatar");//头像
   const partnerName = document.getElementById("partnerName");
@@ -308,8 +301,18 @@ window.onload = () => {
     msgInput.value += symbol;
     msgInput.focus();
   }
-  
-  async function send(eventobj=null) {
+    // 新增的代码：监听消息输入框内容变化，禁用/启用发送按钮
+  document.getElementById('msg').addEventListener('input', function () {
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = !this.value.trim(); // 如果消息为空，禁用发送按钮
+  });
+};
+
+  async function send(eventobj = null) {
+    const msgInput = document.getElementById("msg");
+    const msg = msgInput.value.trim();
+
+    // 如果传入了 eventobj，直接发送
     if (eventobj) {
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify(["EVENT", eventobj]));
@@ -319,43 +322,40 @@ window.onload = () => {
         return;
       }
     }
-    
-    if(!eventobj){
-      const msgInput = document.getElementById("msg");
-      const msg = msgInput.value.trim();
-      if (!msg) return;
-      
-      if(socket.readyState === WebSocket.OPEN){
-        const eventobj = {
-          id:"", 
-          pubkey: window.myPubKey,
-          created_at: Math.floor(Date.now() / 1000),
-          kind: 1,
-          tags: [["t", "room10011"]],   
-          content: msg
-        };
 
-        // 计算 id
-        const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
-        const serialized = JSON.stringify(payload);
-        const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-        eventobj.id = toHex(new Uint8Array(hash));
-        
-        // 签名
-        const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
-        eventobj.sig = toHex(sig);
-        
-        // 发送
-        socket.send(JSON.stringify(["EVENT", eventobj]));
-        if(!eventobj.tags.some(t=>t[0]==="t")){
-          document.getElementById("msg").value = "";
-          log(`${msg}`, "me");
-        }else {
-        log("⚠️ 连接尚未建立或房间未分配", "system");
-      }
+    // 如果没有传入 eventobj，则从输入框创建新的 eventobj
+    if (!msg) return;  // 如果消息为空，不进行任何操作
+
+    if (socket.readyState === WebSocket.OPEN) {
+      const eventobj = {
+        id: "", 
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [["t", "room10011"]],  // 房间标签
+        content: msg
+      };
+
+      // 使用消息内容计算 id
+      const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
+      const serialized = JSON.stringify(payload);
+      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+      eventobj.id = toHex(new Uint8Array(hash));
+
+      // 对事件对象进行签名
+      const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
+      eventobj.sig = toHex(sig);
+
+      // 发送事件
+      socket.send(JSON.stringify(["EVENT", eventobj]));
+
+      // 清空输入框并记录消息
+      msgInput.value = "";
+      log(`${msg}`, "me");
+    } else {
+      log("⚠️ 连接尚未建立或房间未分配", "system");
     }
   }
-}
   
   function announceJoin(sername, pubkey, avatar) {
     // 先把自己加进在线列表

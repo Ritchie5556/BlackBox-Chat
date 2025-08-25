@@ -263,13 +263,10 @@ window.onload = () => {
     circle.className = "status-circle " + state;
     if(state === "online") {
       text.textContent = "在线";
-      partnerInfo.online = true;
     } else if(state === "offline") {
-      text.textContent = "离线";
-      partnerInfo.online = false;
+      text.textContent = "离线"; 
     } else if(state === "busy") {
-      text.textContent = "繁忙";
-      partnerInfo.online = true; 
+      text.textContent = "繁忙";   
     }
     partnerInfo.state = state;
     console.log("partnerInfo:", partnerInfo); 

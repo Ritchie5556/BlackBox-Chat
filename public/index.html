@@ -227,22 +227,23 @@
   generateCredential();
 
   
-window.name = "";   
 window.onload = () => {
+  // 获取昵称
   let name = "";
   do {
     name = prompt("请输入你的昵称:");
-  } while(!name || name.trim() === "");
+  } while (!name || name.trim() === "");
   window.name = name.trim();
-  
+
   // 确保昵称显示在界面上
   const partnerName = document.getElementById("partnerName");
   if (partnerName) {
     partnerName.textContent = window.name; 
   }
+  // 更新用户状态为在线
+  setPartnerStatus("online");
 };
 
-  
   const partnerAvatar = document.getElementById("partnerAvatar");//头像
   const partnerName = document.getElementById("partnerName");
   const logDiv = document.getElementById("log");

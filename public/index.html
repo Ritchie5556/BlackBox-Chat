@@ -242,7 +242,14 @@ window.onload = () => {
   }
   // 更新用户状态为在线
   setPartnerStatus("online");
+
+  // 新增的代码：监听消息输入框内容变化，禁用/启用发送按钮
+  document.getElementById('msg').addEventListener('input', function () {
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = !this.value.trim(); // 如果消息为空，禁用发送按钮
+  });
 };
+
 
   const partnerAvatar = document.getElementById("partnerAvatar");//头像
   const partnerName = document.getElementById("partnerName");
@@ -716,71 +723,78 @@ window.onload = () => {
     );
   }
   
-  async function startCall(isIncoming = false) {
-    console.log("发起通话，isIncoming:", isIncoming);
-    // 检查并重置PeerConnection状态
-    if (!checkAndResetPeerConnection()) {
-      console.log("PeerConnection状态异常，已重置");
-    }
-    
-    // 检查在线用户
-    const onlineUsers = participants.filter(
-      p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 100 * 60 * 1000
-    );
-    console.log("当前在线用户:", onlineUsers);
-    
-    if (onlineUsers.length === 0) {
-      alert("当前聊天室没有其他在线用户，无法发起通话");
-      return;
-    }
-    
-    const now = Math.floor(Date.now() / 1000);
-    if (!window.credential || now > window.credential.expireAt) {
-      alert("凭证已过期，请重新获取");
-      return;
-    }
-    
-    // 确保 peerConnection 存在
-    if (!peerConnection || peerConnection.signalingState === "closed") {
-      await initPeerConnection();
-    }
-    
-    // 如果是主叫方（发起通话）
-    if (!isIncoming) {
-      // 创建并发送offer
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      
-      // 创建通话事件
-      const callEvent = {
-        pubkey: window.myPubKey,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 1,
-        tags: [["t", "room10011"], ["call", "offer"]],
-        content: JSON.stringify({
-          type: "offer",
-          sdp: offer.sdp,
-          username: window.name
-        })
-      };
-      
-      // 计算事件ID和签名
-      const payload = [0, callEvent.pubkey, callEvent.created_at, callEvent.kind, callEvent.tags, callEvent.content];
-      const serialized = JSON.stringify(payload);
-      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-      callEvent.id = toHex(new Uint8Array(hash));
-      const sig = await nobleSchnorr.sign(callEvent.id, window.myPrivKey);
-      callEvent.sig = toHex(sig);
-      
-      // 发送通话事件
-      socket.send(JSON.stringify(["EVENT", callEvent]));
-      log("📞 已发送呼叫请求", "system");
-    }
-    
-    // 显示通话界面
-    showCallOverlay(isIncoming);
-    isCalling = true;
+async function startCall(isIncoming = false) {
+  if (isCalling) {
+    alert("当前正在通话中，请稍后");
+    return;
   }
+
+  console.log("发起通话，isIncoming:", isIncoming);
+
+  // 检查并重置PeerConnection状态
+  if (!checkAndResetPeerConnection()) {
+    console.log("PeerConnection状态异常，已重置");
+  }
+
+  // 检查在线用户
+  const onlineUsers = participants.filter(
+    p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 100 * 60 * 1000
+  );
+  console.log("当前在线用户:", onlineUsers);
+
+  if (onlineUsers.length === 0) {
+    alert("当前聊天室没有其他在线用户，无法发起通话");
+    return;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (!window.credential || now > window.credential.expireAt) {
+    alert("凭证已过期，请重新获取");
+    return;
+  }
+
+  // 确保 peerConnection 存在
+  if (!peerConnection || peerConnection.signalingState === "closed") {
+    await initPeerConnection();
+  }
+
+  // 如果是主叫方（发起通话）
+  if (!isIncoming) {
+    // 创建并发送offer
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+
+    // 创建通话事件
+    const callEvent = {
+      pubkey: window.myPubKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [["t", "room10011"], ["call", "offer"]],
+      content: JSON.stringify({
+        type: "offer",
+        sdp: offer.sdp,
+        username: window.name
+      })
+    };
+
+    // 计算事件ID和签名
+    const payload = [0, callEvent.pubkey, callEvent.created_at, callEvent.kind, callEvent.tags, callEvent.content];
+    const serialized = JSON.stringify(payload);
+    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+    callEvent.id = toHex(new Uint8Array(hash));
+    const sig = await nobleSchnorr.sign(callEvent.id, window.myPrivKey);
+    callEvent.sig = toHex(sig);
+
+    // 发送通话事件
+    socket.send(JSON.stringify(["EVENT", callEvent]));
+    log("📞 已发送呼叫请求", "system");
+  }
+
+  // 显示通话界面
+  showCallOverlay(isIncoming);
+  isCalling = true;
+}
+
 
   // 显示通话界面的函数
   function showCallOverlay(isIncoming) {

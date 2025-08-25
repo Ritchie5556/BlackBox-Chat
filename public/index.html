@@ -226,7 +226,7 @@
   }
   generateCredential();
 
-  
+  let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false }; 
 window.onload = () => {
   // 获取昵称
   let name = "";
@@ -240,7 +240,6 @@ window.onload = () => {
   if (partnerName) {
     partnerName.textContent = window.name; 
   }
-  let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
   // 更新用户状态为在线
   setPartnerStatus("online");
   console.log(partnerInfo);

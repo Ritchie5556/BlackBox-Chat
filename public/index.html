@@ -161,7 +161,7 @@
       <span id="statusText">离线</span>
     </div>
   </div>
-  <button onclick="startCall()" id="startCallBtn">📞</button>
+  <button  id="startCallBtn">📞</button>
 </div>
 
 <div id="log"></div>
@@ -176,9 +176,7 @@
 <div id="callUI" class="hidden"></div>
 
 <script type="module">
-  document.getElementById("startCallBtn").addEventListener("click", () => {
-  startCall();
-});
+
   import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
   import { sha256 } from "https://esm.sh/@noble/hashes/sha256";
 
@@ -227,23 +225,19 @@
   generateCredential();
 
   let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false }; 
-window.onload = () => {
-  // 获取昵称
+window.addEventListener("load", () => {
   let name = "";
   do {
     name = prompt("请输入你的昵称:");
-  } while (!name || name.trim() === "");
+  } while(!name || name.trim() === "");
   window.name = name.trim();
 
-  // 确保昵称显示在界面上
   const partnerName = document.getElementById("partnerName");
   if (partnerName) {
     partnerName.textContent = window.name; 
   }
-  // 更新用户状态为在线
-  setPartnerStatus("online");
-  console.log(partnerInfo);
-}
+});
+
 
   const partnerAvatar = document.getElementById("partnerAvatar");//头像
   const logDiv = document.getElementById("log");
@@ -313,54 +307,68 @@ window.onload = () => {
   sendBtn.addEventListener("click", send);
 };
 
-  async function send(eventobj = null) {
-    const msgInput = document.getElementById("msg");
-    const msg = msgInput.value.trim();
+async function send(eventobj = null) {
+  const msgInput = document.getElementById("msg");
+  const msg = msgInput.value.trim();
 
-    // 如果传入了 eventobj，直接发送
-    if (eventobj) {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify(["EVENT", eventobj]));
-        return;
-      } else {
-        log("信令发送失败，WebSocket未连接", "system");
-        return;
-      }
-    }
-
-    // 如果没有传入 eventobj，则从输入框创建新的 eventobj
-    if (!msg) return;  // 如果消息为空，不进行任何操作
-
-    if (socket.readyState === WebSocket.OPEN) {
-      const eventobj = {
-        id: "", 
-        pubkey: window.myPubKey,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 1,
-        tags: [["t", "room10011"]],  // 房间标签
-        content: msg
-      };
-
-      // 使用消息内容计算 id
+  // 如果传入了 eventobj（比如通话信令）
+  if (eventobj) {
+    // 如果缺少 id 或 sig，这里补上
+    if (!eventobj.id || !eventobj.sig) {
       const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
       const serialized = JSON.stringify(payload);
       const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
       eventobj.id = toHex(new Uint8Array(hash));
 
-      // 对事件对象进行签名
       const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
       eventobj.sig = toHex(sig);
-
-      // 发送事件
-      socket.send(JSON.stringify(["EVENT", eventobj]));
-
-      // 清空输入框并记录消息
-      msgInput.value = "";
-      log(`${msg}`, "me");
-    } else {
-      log("⚠️ 连接尚未建立或房间未分配", "system");
     }
+
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(["EVENT", eventobj]));
+    } else {
+      log("信令发送失败，WebSocket未连接", "system");
+    }
+    return;
   }
+
+  // 如果没有传入 eventobj（即用户在输入框发消息）
+  if (!msg) return;
+
+  if (socket.readyState === WebSocket.OPEN) {
+    const eventobj = {
+      id: "",
+      pubkey: window.myPubKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [["t", "room10011"]], // 房间标签
+      content: msg
+    };
+
+    // 计算 id
+    const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
+    const serialized = JSON.stringify(payload);
+    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+    eventobj.id = toHex(new Uint8Array(hash));
+
+    // 签名
+    const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
+    eventobj.sig = toHex(sig);
+
+    // 发送事件
+    socket.send(JSON.stringify(["EVENT", eventobj]));
+
+    // 清空输入框 + 禁用按钮
+    msgInput.value = "";
+    document.getElementById("sendBtn").disabled = true;
+
+    // 在界面显示
+    log(`${msg}`, "me");
+  } else {
+    log("⚠️ 连接尚未建立或房间未分配", "system");
+  }
+}
+
   
   function announceJoin(sername, pubkey, avatar) {
     // 先把自己加进在线列表
@@ -800,7 +808,7 @@ async function startCall(isIncoming = false) {
   isCalling = true;
 }
 
-
+document.getElementById("callBtn").addEventListener("click", () => startCall(false));
   // 显示通话界面的函数
   function showCallOverlay(isIncoming) {
     // 移除已存在的通话界面（如果有）

@@ -307,7 +307,10 @@ window.onload = () => {
   // 按钮点击事件
   sendBtn.addEventListener("click", send);
 };
-
+if (!window.myPubKey || !window.myPrivKey) {
+  console.error("公钥或私钥未初始化！");
+  return;
+}
 async function send(eventobj = null) {
   const msgInput = document.getElementById("msg");
   const msg = msgInput.value.trim();
@@ -319,7 +322,7 @@ async function send(eventobj = null) {
     // 构建消息对象
     eventobj = {
       id: "",
-      pubkey: window.myPubKey,
+      pubkey: String(window.myPubKey),
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
       tags: [["t", "room10011"]],
@@ -336,7 +339,7 @@ async function send(eventobj = null) {
   // 签名
   const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
   eventobj.sig = toHex(sig);
-
+  console.log("eventobj ready to send:", eventobj);
   // 发送事件
   if (socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(["EVENT", eventobj]));
@@ -473,7 +476,7 @@ async function send(eventobj = null) {
     try {
       const data = JSON.parse(e.data);
       console.log("收到:", e.data);
-      
+      partnerName.textContent = "未知用户";
       // 1. 处理数组格式的消息 (Nostr协议标准格式)
       if (Array.isArray(data)) {
         if (data[0] === "OK") {
@@ -489,11 +492,10 @@ async function send(eventobj = null) {
           if (!event || !event.pubkey) return;
           
           // 更新用户映射
-          if (!mysMap[event.pubkey]) {
-            mysMap[event.pubkey] = event.username || event.pubkey.slice(0, 8); 
-          }
-          
-          console.log("当前在线用户:", Object.values(mysMap));
+          if (event.pubkey !== window.myPubKey) {
+             partnerInfo.username = event.username || event.pubkey.slice(0, 8);
+             partnerName.textContent = partnerInfo.username;
+           }
           
           // 检查是否是通话相关事件
           const callTag = event.tags?.find(t => t[0] === "call");
@@ -713,6 +715,7 @@ async function send(eventobj = null) {
     return true;
   }
   let participants = []; 
+  let onlineUsers = [];
   function getOnlineUsers() {
     return participants.filter(
       p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 10*60 * 1000

@@ -194,7 +194,8 @@
   window.myPubKey = toHex(pub);
   window.nobleSchnorr = schnorr;
   console.log("pubkey:", window.myPubKey);
-  
+  window.send = send;
+  window.startCall = startCall;
   // === 生成凭证 ===
   async function generateCredential() {
     const now = Math.floor(Date.now() / 1000); // 秒级时间戳
@@ -311,61 +312,43 @@ async function send(eventobj = null) {
   const msgInput = document.getElementById("msg");
   const msg = msgInput.value.trim();
 
-  // 如果传入了 eventobj（比如通话信令）
-  if (eventobj) {
-    // 如果缺少 id 或 sig，这里补上
-    if (!eventobj.id || !eventobj.sig) {
-      const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
-      const serialized = JSON.stringify(payload);
-      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-      eventobj.id = toHex(new Uint8Array(hash));
+  // 如果没有传入 eventobj（即普通聊天消息）
+  if (!eventobj) {
+    if (!msg) return; // 空消息不发
 
-      const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
-      eventobj.sig = toHex(sig);
-    }
-
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(["EVENT", eventobj]));
-    } else {
-      log("信令发送失败，WebSocket未连接", "system");
-    }
-    return;
-  }
-
-  // 如果没有传入 eventobj（即用户在输入框发消息）
-  if (!msg) return;
-
-  if (socket.readyState === WebSocket.OPEN) {
-    const eventobj = {
+    // 构建消息对象
+    eventobj = {
       id: "",
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10011"]], // 房间标签
+      tags: [["t", "room10011"]],
       content: msg
     };
+  }
 
-    // 计算 id
-    const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
-    const serialized = JSON.stringify(payload);
-    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-    eventobj.id = toHex(new Uint8Array(hash));
+  // 计算 id
+  const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
+  const serialized = JSON.stringify(payload);
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+  eventobj.id = toHex(new Uint8Array(hash));
 
-    // 签名
-    const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
-    eventobj.sig = toHex(sig);
+  // 签名
+  const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
+  eventobj.sig = toHex(sig);
 
-    // 发送事件
+  // 发送事件
+  if (socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(["EVENT", eventobj]));
+
+    // 如果是普通消息，显示到界面
+    if (!msgInput.disabled) log(eventobj.content, "me");
 
     // 清空输入框 + 禁用按钮
     msgInput.value = "";
     document.getElementById("sendBtn").disabled = true;
-
-    // 在界面显示
-    log(`${msg}`, "me");
   } else {
-    log("⚠️ 连接尚未建立或房间未分配", "system");
+    log("信令发送失败，WebSocket未连接", "system");
   }
 }
 

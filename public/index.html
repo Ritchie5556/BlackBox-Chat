@@ -176,17 +176,17 @@
 <div id="callUI" class="hidden"></div>
 
 <script type="module">
-
-import * as secp from "https://esm.sh/@noble/curves/secp256k1";
-
+import { secp256k1 } from 'https://esm.sh/@noble/curves/secp256k1';
   // 工具函数：Uint8Array → hex
   function toHex(bytes) {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
-
-// 私钥还是用 secp.utils 来生成
-const priv = secp.utils.randomPrivateKey();  // 这里用 secp
-const pub = await secp.schnorr.getPublicKey(priv); // 获取公钥
+// 生成一个随机私钥
+const priv = secp256k1.utils.randomPrivateKey();
+// 从私钥生成公钥
+const pub = secp256k1.getPublicKey(priv);
+// 打印公钥（以十六进制形式显示）
+console.log("公钥: ", pub);
 
   // 挂到全局，后面 send() 用
   window.myPrivKey = priv;

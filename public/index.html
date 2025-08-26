@@ -177,8 +177,14 @@
 
 <script type="module">
   import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
-  window.nobleSchnorr = schnorr;
-  console.log("pubkey:", window.myPubKey);
+  import { secp256k1 } from "https://esm.sh/@noble/curves/secp256k1";
+// 生成私钥并计算公钥
+const priv = secp256k1.utils.randomPrivateKey();
+const pub = secp256k1.getPublicKey(priv);
+// 将公钥转换为十六进制字符串
+window.myPubKey = toHex(pub);
+window.nobleSchnorr = schnorr;
+console.log("pubkey:", window.myPubKey);
   
   // === 生成凭证 ===
   async function generateCredential() {
@@ -190,11 +196,8 @@
       expireAt: expireAt
     };
 
-    // 对 payload 做哈希
     const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
     const id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-
-    // 用 schnorr 签名
     const sig = await schnorr.sign(id, window.myPrivKey);
 
     const credential = {

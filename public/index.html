@@ -176,7 +176,8 @@
 <div id="callUI" class="hidden"></div>
 
 <script type="module">
-  import { secp256k1 } from 'https://esm.sh/@noble/curves/secp256k1';
+import { secp256k1 } from 'https://esm.sh/@noble/curves/secp256k1';
+import { schnorr } from 'https://esm.sh/@noble/curves/secp256k1'; 
 // 生成私钥并计算公钥
 const priv = new Uint8Array(32);
 crypto.getRandomValues(priv);
@@ -311,11 +312,9 @@ const pub = secp256k1.getPublicKey(priv);
         const serialized = JSON.stringify(payload);
         const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
         eventobj.id = toHex(new Uint8Array(hash));
-        
         // 签名
         const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
         eventobj.sig = toHex(sig);
-        
         // 发送
         socket.send(JSON.stringify(["EVENT", eventobj]));
         if(!eventobj.tags.some(t=>t[0]==="t")){

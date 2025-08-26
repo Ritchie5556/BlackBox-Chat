@@ -178,9 +178,10 @@
 <script type="module">
   import { secp256k1 } from 'https://esm.sh/@noble/curves/secp256k1';
 // 生成私钥并计算公钥
-const priv = secp256k1.utils.randomBytes(32); // 生成32字节的私钥
+const priv = new Uint8Array(32);
+crypto.getRandomValues(priv);
+console.log(priv); 
 const pub = secp256k1.getPublicKey(priv);
-
   // === 生成凭证 ===
   async function generateCredential() {
     const now = Math.floor(Date.now() / 1000); // 秒级时间戳

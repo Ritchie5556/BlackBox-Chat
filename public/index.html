@@ -319,9 +319,6 @@ window.send=async function send(eventobj=null) {
       eventobj.id = toHex(uint8Hash);
       const sigUint8 = await schnorr.sign(uint8Hash, window.myPrivKey);
       eventobj.sig = toHex(sigUint8);
-     // 签名 (注意：签名时要传 Uint8Array，而不是 hex 字符串)
-     const sigUint8 = await schnorr.sign(sigUint8, window.myPrivKey);
-     eventobj.sig = toHex(sigUint8);
      console.log("转换后的sig打印出:", eventobj.sig);
 
       // 发送

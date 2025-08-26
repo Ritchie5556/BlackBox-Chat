@@ -183,6 +183,8 @@ const priv = new Uint8Array(32);
 crypto.getRandomValues(priv);
 console.log(priv); 
 const pub = secp256k1.getPublicKey(priv);
+window.myPrivKey = priv;   // ✅ 补上这行
+window.myPubKey  = toHex(pub); 
   // === 生成凭证 ===
   async function generateCredential() {
     const now = Math.floor(Date.now() / 1000); // 秒级时间戳
@@ -192,15 +194,16 @@ const pub = secp256k1.getPublicKey(priv);
       issuedAt: now,
       expireAt: expireAt
     };
-
     const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
-    const id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-    const sig = await schnorr.sign(id, window.myPrivKey);
+    const uint8Hash = new Uint8Array(hash);
+    const id = toHex(uint8Hash);
 
+    const sigUint8 = await schnorr.sign(uint8Hash, window.myPrivKey);
+    const sig = toHex(sigUint8);
     const credential = {
       ...payload,
       id,
-      sig: toHex(sig)
+      sig
     };
 
     window.credential = credential; // 挂到全局
@@ -313,8 +316,9 @@ window.send=async function send(eventobj=null) {
       const serialized = JSON.stringify(payload);
       const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
       const uint8Hash = new Uint8Array(hash);
-      eventobj.id = toHex(uint8Hash);  // 转换成十六进制字符串
-      
+      eventobj.id = toHex(uint8Hash);
+      const sigUint8 = await schnorr.sign(uint8Hash, window.myPrivKey);
+      eventobj.sig = toHex(sigUint8);
      // 签名 (注意：签名时要传 Uint8Array，而不是 hex 字符串)
      const sigUint8 = await schnorr.sign(uint8Hash, window.myPrivKey);
      eventobj.sig = toHex(sigUint8);

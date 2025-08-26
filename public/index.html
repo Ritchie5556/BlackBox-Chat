@@ -185,9 +185,9 @@
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
 
-  // 生成私钥、公钥
-  const priv = schnorr.utils.randomPrivateKey();
-  const pub = schnorr.getPublicKey(priv);
+// 私钥还是用 secp.utils 来生成
+  const priv = secp.utils.randomPrivateKey();
+  const pub = await schnorr.getPublicKey(priv);
 
   // 挂到全局，后面 send() 用
   window.myPrivKey = priv;

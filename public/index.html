@@ -176,14 +176,11 @@
 <div id="callUI" class="hidden"></div>
 
 <script type="module">
-  import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
-  import { secp256k1 } from "https://esm.sh/@noble/curves/secp256k1";
+  import { secp256k1 } from 'https://esm.sh/@noble/curves/secp256k1';
 // 生成私钥并计算公钥
-const priv = secp256k1.utils.randomPrivateKey(32);
+const priv = secp256k1.utils.randomBytes(32); // 生成32字节的私钥
 const pub = secp256k1.getPublicKey(priv);
-// 将公钥转换为十六进制字符串
-window.nobleSchnorr = schnorr;
-  
+
   // === 生成凭证 ===
   async function generateCredential() {
     const now = Math.floor(Date.now() / 1000); // 秒级时间戳

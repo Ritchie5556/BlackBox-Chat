@@ -177,8 +177,7 @@
 
 <script type="module">
 
-  import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
-  import { sha256 } from "https://esm.sh/@noble/hashes/sha256";
+import * as secp from "https://esm.sh/@noble/curves/secp256k1";
 
   // 工具函数：Uint8Array → hex
   function toHex(bytes) {
@@ -186,8 +185,8 @@
   }
 
 // 私钥还是用 secp.utils 来生成
-  const priv = secp.utils.randomPrivateKey();
-  const pub = await schnorr.getPublicKey(priv);
+const priv = secp.utils.randomPrivateKey();  // 这里用 secp
+const pub = await secp.schnorr.getPublicKey(priv); // 获取公钥
 
   // 挂到全局，后面 send() 用
   window.myPrivKey = priv;

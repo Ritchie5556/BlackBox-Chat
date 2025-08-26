@@ -161,7 +161,7 @@
       <span id="statusText">离线</span>
     </div>
   </div>
-  <button  id="callBtn">📞</button>
+  <button onclick="startCall()">📞</button>
 </div>
 
 <div id="log"></div>
@@ -169,114 +169,195 @@
 <div class="input-area">
   <input id="msg" placeholder="输入消息..." />
   <button id="emojiBtn" onclick="toggleEmojiPanel()">😊</button>
-  <button id="sendBtn"  disabled>发送</button>
+  <button id="sendBtn" onclick="send()" disabled>发送</button>
 </div>
 
 <!-- 通话浮层 -->
 <div id="callUI" class="hidden"></div>
 
 <script type="module">
-import { secp256k1 } from 'https://esm.sh/@noble/curves/secp256k1';
-  // 工具函数：Uint8Array → hex
-  function toHex(bytes) {
-    return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
-  }
-// 生成一个随机私钥
-const priv = secp256k1.utils.randomPrivateKey();
-// 从私钥生成公钥
-const pub = secp256k1.getPublicKey(priv);
-// 打印公钥（以十六进制形式显示）
-console.log("公钥: ", pub);
-
-  // 挂到全局，后面 send() 用
-  window.myPrivKey = priv;
+   import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
+  import { sha256 } from "https://esm.sh/@noble/hashes/sha256";
   window.myPubKey = toHex(pub);
   window.nobleSchnorr = schnorr;
   console.log("pubkey:", window.myPubKey);
-  window.send = send;
-  window.startCall = startCall;
+  
   // === 生成凭证 ===
+async function generateCredential() {
+  const now = Math.floor(Date.now() / 1000); // 秒级时间戳
+  const expireAt = now + 7 * 24 * 60 * 60; // +7天
   async function generateCredential() {
     const now = Math.floor(Date.now() / 1000); // 秒级时间戳
     const expireAt = now + 7 * 24 * 60 * 60; // +7天
 
+  const payload = {
+    pubkey: window.myPubKey,
+    issuedAt: now,
+    expireAt: expireAt
+  };
     const payload = {
       pubkey: window.myPubKey,
       issuedAt: now,
       expireAt: expireAt
     };
 
+  // 对 payload 做哈希
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
+  const id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
     // 对 payload 做哈希
     const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload)));
     const id = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 
+  // 用 schnorr 签名
+  const sig = await schnorr.sign(id, window.myPrivKey);
     // 用 schnorr 签名
     const sig = await schnorr.sign(id, window.myPrivKey);
 
+  const credential = {
+    ...payload,
+    id,
+    sig: toHex(sig)
+  };
     const credential = {
       ...payload,
       id,
       sig: toHex(sig)
     };
 
+  window.credential = credential; // 挂到全局
+  console.log("凭证生成:", credential);
+}
+generateCredential();
     window.credential = credential; // 挂到全局
     console.log("凭证生成:", credential);
   }
   generateCredential();
+</script>
 
-  let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false }; 
-window.addEventListener("load", () => {
+<script>
+ function toHex(bytes) {
+  function toHex(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+window.name = "";   
+window.onload = () => {
   let name = "";
   do {
     name = prompt("请输入你的昵称:");
   } while(!name || name.trim() === "");
-  window.name = name.trim();
-
-  const partnerName = document.getElementById("partnerName");
-  if (partnerName) {
-    partnerName.textContent = window.name; 
-  }
-});
-
-
+  window.name = name;  
+};
+const partnerAvatar = document.getElementById("partnerAvatar");//头像
+const partnerName = document.getElementById("partnerName");
+const logDiv = document.getElementById("log");
+const socket = new WebSocket("wss://relay.damus.io");
+  
+  window.name = "";   
+  window.onload = () => {
+    let name = "";
+    do {
+      name = prompt("请输入你的昵称:");
+    } while(!name || name.trim() === "");
+    window.name = name;  
+  };
+  
   const partnerAvatar = document.getElementById("partnerAvatar");//头像
+  const partnerName = document.getElementById("partnerName");
   const logDiv = document.getElementById("log");
   const socket = new WebSocket("wss://relay.damus.io");
 
+let myRoom = null;
+let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
+let emojis = [];
+const mysMap = {}; // pubkey → 用户名映射
+// 全局变量用于存储计时器
+let callTimerInterval = null;
+let callStartTime = null;
+//状态判断
+function setPartnerStatus(state){
+  const circle = document.getElementById("statusCircle");
+  const text = document.getElementById("statusText");
+  circle.className = "status-circle " + state;
+  if(state === "online") {
+    text.textContent = "在线";
+    partnerInfo.online = true;
+  } else if(state === "offline") {
+    text.textContent = "离线";
+    partnerInfo.online = false;
+  } else if(state === "busy") {
+    text.textContent = "繁忙";
+    partnerInfo.online = true; 
   let myRoom = null;
+  let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
   let emojis = [];
   const mysMap = {}; // pubkey → 用户名映射
   // 全局变量用于存储计时器
   let callTimerInterval = null;
   let callStartTime = null;
+  
   //状态判断
-function setPartnerStatus(state) {
+  function setPartnerStatus(state){
     const circle = document.getElementById("statusCircle");
     const text = document.getElementById("statusText");
     circle.className = "status-circle " + state;
     if(state === "online") {
-        text.textContent = "在线";
-        partnerInfo.online = true;
+      text.textContent = "在线";
+      partnerInfo.online = true;
     } else if(state === "offline") {
-        text.textContent = "离线";
-        partnerInfo.online = false;
+      text.textContent = "离线";
+      partnerInfo.online = false;
     } else if(state === "busy") {
-        text.textContent = "繁忙";
-        partnerInfo.online = true; 
+      text.textContent = "繁忙";
+      partnerInfo.online = true; 
     }
     partnerInfo.state = state;
     console.log("partnerInfo:", partnerInfo); 
+  }
+  partnerInfo.state = state;
+  console.log("partnerInfo:", partnerInfo); 
 }
+// -------------------- 表情包 --------------------
+fetch('other/emojis.json')
+  .then(res => res.json())
+  .then(data => emojis = data);  
+
+function toggleEmojiPanel(){
+  let panel = document.getElementById('emojiPanel');
+  if(panel) { panel.remove(); return; }
   
   // -------------------- 表情包 --------------------
   fetch('other/emojis.json')
     .then(res => res.json())
     .then(data => emojis = data);  
 
+  panel = document.createElement('div');
+  panel.id = 'emojiPanel';
+  emojis.forEach(e=>{
+    const btn = document.createElement('button');
+    btn.innerText = e.symbol;
+    btn.onclick = ()=> insertEmoji(e.symbol);
+    panel.appendChild(btn);
+  });
+  document.querySelector('.input-area').appendChild(panel);
+}
   function toggleEmojiPanel(){
     let panel = document.getElementById('emojiPanel');
     if(panel) { panel.remove(); return; }
 
+function insertEmoji(symbol){
+  const msgInput = document.getElementById("msg");
+  msgInput.value += symbol;
+  msgInput.focus();
+}
+async function send(eventobj=null) {
+  if (eventobj) {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(["EVENT", eventobj]));
+      return;
+    } else {
+      log("信令发送失败，WebSocket未连接", "system");
+      return;
+    }
     panel = document.createElement('div');
     panel.id = 'emojiPanel';
     emojis.forEach(e=>{
@@ -287,73 +368,204 @@ function setPartnerStatus(state) {
     });
     document.querySelector('.input-area').appendChild(panel);
   }
+ if(!eventobj){
+   const msgInput = document.getElementById("msg");
+   const msg = msgInput.value.trim();
+   if (!msg) return;
+   if(socket.readyState === WebSocket.OPEN){
+   const eventobj = {
+    id:"", 
+    pubkey: window.myPubKey,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 1,
+    tags: [["t", "room10011"]],   
+    content: msg
+    };
 
+   // 计算 id
+   const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
+   const serialized = JSON.stringify(payload);
+   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+   eventobj.id = toHex(new Uint8Array(hash));
+  // 签名
+   const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
+   eventobj.sig = toHex(sig);
+  // 发送
+    socket.send(JSON.stringify(["EVENT", eventobj]));
+    if(!eventobj.tags.some(t=>t[0]==="t")){
+      document.getElementById("msg").value = "";
+       log(`${msg}`, "me"); 
+    }
+  }  else {
+    log("⚠️ 连接尚未建立或房间未分配", "system");
   function insertEmoji(symbol){
     const msgInput = document.getElementById("msg");
     msgInput.value += symbol;
     msgInput.focus();
   }
-    // 新增的代码：监听消息输入框内容变化，禁用/启用发送按钮
-window.onload = () => {
-  const msgInput = document.getElementById("msg");
-  const sendBtn = document.getElementById("sendBtn");
+ }
+ }
 
-  // 输入框监听，控制按钮状态
-  msgInput.addEventListener("input", function () {
-    sendBtn.disabled = !this.value.trim();
+  function announceJoin(sername, pubkey, avatar) {
+  // 先把自己加进在线列表
+  participants.push({
+    pubkey: window.myPubKey,
+    username: window.name,
+    avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
+    lastSeen: Date.now()
   });
+  console.log("你已加入聊天室，当前人数：",  participants.length);
 
-  // 按钮点击事件
-  sendBtn.addEventListener("click", send);
+  // 广播 JOIN 消息，让别人知道你上线了
+  send({
+    pubkey: window.myPubKey,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 1,
+    tags: [["t", "room10011"], ["status", "JOIN"]],
+    content: window.name + " 加入了聊天室"
+  });
+}
+// -------------------- 聊天功能 --------------------
+let participants = [];
+socket.onopen = () => {
+  log("✅ 已连接Relay网络聊天室", "system");
+  announceJoin();  // 广播自己上线
+  setPartnerStatus("online")//加入聊天室后，默认在线状态
+  console.log("当前状态:",setPartnerStatus("online"))
+  document.getElementById("sendBtn").disabled = false;
+  //socket.send(JSON.stringify({ system: true, join: true, name, avatar: "", requestRoom: true }));
+  socket.send(
+    JSON.stringify(
+      [
+        "REQ", 
+        "sub1",
+        { 
+          kinds:[1],
+          "#t": ["room10011"] 
+        }
+      ]
+    )
+  );
+  // 发一条 system join 消息
+  const joinEvent = {
+    pubkey: window.myPubKey,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 1,
+    tags: [["t", "room10011"]],
+    content:`${window.name} 加入了聊天室`
+  };
+  mysMap[window.myPubKey] = window.name; // 保存映射
+  participants.push({
+    pubkey: window.myPubKey,
+    name: window.name,
+    avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
+    lastSeen: Date.now()
+  });
+  send(joinEvent);
 };
-if (!window.myPubKey || !window.myPrivKey) {
-  console.error("公钥或私钥未初始化！");
-}
-async function send(eventobj = null) {
-  const msgInput = document.getElementById("msg");
-  const msg = msgInput.value.trim();
+// 定义 handleSignal 函数
+async function handleSignal(data) {
+  switch (data.type) {
+    case "offer":
+      if (!isCalling) {
+        await initPeerConnection();
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
 
-  // 如果没有传入 eventobj（即普通聊天消息）
-  if (!eventobj) {
-    if (!msg) return; // 空消息不发
+        socket.send(JSON.stringify({
+           created_at: Math.floor(Date.now() / 1000),
+           kind: 1,
+           tags: [["t", "room10011"], ["call", "answer"]],
+           content: JSON.stringify({
+           type: "answer",
+           answer: answer,
+           name: window.name
+         })
+       }))
+         alert(`${data.name} 发起了语音通话`);
+      }
+      break;
 
-    // 构建消息对象
-    eventobj = {
-      id: "",
-      pubkey: String(window.myPubKey),
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [["t", "room10011"]],
-      content: msg
-    };
+    case "answer":
+      if (peerConnection) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      }
+      break;
+
+    case "ice":
+      if (peerConnection && data.candidate) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+  async function send(eventobj=null) {
+    if (eventobj) {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(["EVENT", eventobj]));
+        return;
+      } else {
+        log("信令发送失败，WebSocket未连接", "system");
+        return;
+      }
+      break;
+    }
+    
+    if(!eventobj){
+      const msgInput = document.getElementById("msg");
+      const msg = msgInput.value.trim();
+      if (!msg) return;
+      
+      if(socket.readyState === WebSocket.OPEN){
+        const eventobj = {
+          id:"", 
+          pubkey: window.myPubKey,
+          created_at: Math.floor(Date.now() / 1000),
+          kind: 1,
+          tags: [["t", "room10011"]],   
+          content: msg
+        };
+
+    case "hangup":
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+        // 计算 id
+        const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
+        const serialized = JSON.stringify(payload);
+        const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+        eventobj.id = toHex(new Uint8Array(hash));
+        
+        // 签名
+        const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
+        eventobj.sig = toHex(sig);
+        
+        // 发送
+        socket.send(JSON.stringify(["EVENT", eventobj]));
+        if(!eventobj.tags.some(t=>t[0]==="t")){
+          document.getElementById("msg").value = "";
+          log(`${msg}`, "me"); 
+        }
+      } else {
+        log("⚠️ 连接尚未建立或房间未分配", "system");
+      }
+      isCalling = false;
+      removeCallOverlay();
+      break;
+    }
   }
-
-  // 计算 id
-  const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
-  const serialized = JSON.stringify(payload);
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-  eventobj.id = toHex(new Uint8Array(hash));
-
-  // 签名
-  const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
-  eventobj.sig = toHex(sig);
-  console.log("eventobj ready to send:", eventobj);
-  // 发送事件
-  if (socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify(["EVENT", eventobj]));
-
-    // 如果是普通消息，显示到界面
-    if (!msgInput.disabled) log(eventobj.content, "me");
-
-    // 清空输入框 + 禁用按钮
-    msgInput.value = "";
-    document.getElementById("sendBtn").disabled = true;
-  } else {
-    log("信令发送失败，WebSocket未连接", "system");
-  }
 }
+// 用户管理逻辑
+function handleEvent(event) {
+  const tags = event.tags || [];
+  const statusTag = tags.find(t => t[0] === "status");
+  const pubkey = event.pubkey;
+  const isMe = pubkey === window.myPubKey;
 
-  
+  // 获取或创建用户信息
+  let user = participants.find(p => p.pubkey === pubkey);
+  if (!user) {
+    user = {
+      pubkey: pubkey,
+      username: isMe ? window.name : pubkey.slice(0, 8),
+      avatar: "https://robohash.org/" + pubkey,
   function announceJoin(sername, pubkey, avatar) {
     // 先把自己加进在线列表
     participants.push({
@@ -361,6 +573,10 @@ async function send(eventobj = null) {
       username: window.name,
       avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg",
       lastSeen: Date.now()
+    };
+    participants.push(user);
+  } else {
+    user.lastSeen = Date.now();
     });
     console.log("你已加入聊天室，当前人数：",  participants.length);
 
@@ -373,7 +589,15 @@ async function send(eventobj = null) {
       content: window.name + " 加入了聊天室"
     });
   }
-  
+
+  // 处理状态标签
+  if (statusTag) {
+    if (statusTag[1] === "JOIN") {
+      log(`${user.username} 加入了聊天室`, "system");
+    } else if (statusTag[1] === "LEAVE") {
+      participants = participants.filter(p => p.pubkey !== pubkey);
+      log(`${user.username} 离开了聊天室`, "system");
+      return;
   // 定义 handleSignal 函数
   async function handleSignal(data) {
     switch (data.type) {
@@ -420,14 +644,36 @@ async function send(eventobj = null) {
         break;
     }
   }
+
+  // 处理普通消息
+  if (event.content && !event.content.includes("加入了聊天室") && !event.content.includes("离开了聊天室")) {
+    log(`${user.username}: ${event.content}`, isMe ? "me" : "other");
+  }
   
+  // 更新partnerInfo（如果是对方）
+  if (!isMe) {
+    partnerInfo.pubkey = pubkey;
+    partnerInfo.username = user.username;
+    partnerInfo.avatar = user.avatar;
+    partnerInfo.online = true;
   // 用户管理逻辑
   function handleEvent(event) {
     const tags = event.tags || [];
     const statusTag = tags.find(t => t[0] === "status");
     const pubkey = event.pubkey;
     const isMe = pubkey === window.myPubKey;
-    
+
+    partnerName.textContent = partnerInfo.username;
+    partnerAvatar.src = partnerInfo.avatar;
+    setPartnerStatus("online");
+  }
+}
+
+
+socket.onmessage = async (e) => {
+  try {
+    const data = JSON.parse(e.data);
+    console.log("收到:", e.data);
     // 获取或创建用户信息
     let user = participants.find(p => p.pubkey === pubkey);
     if (!user) {
@@ -441,7 +687,15 @@ async function send(eventobj = null) {
     } else {
       user.lastSeen = Date.now();
     }
-    
+
+    // 1. 处理数组格式的消息 (Nostr协议标准格式)
+    if (Array.isArray(data)) {
+      if (data[0] === "OK") {
+        console.log("Relay确认:", data);
+        return;
+      }
+      if (data[0] === "EOSE") {
+        console.log("EOSE 收到:", data[1]);
     // 处理状态标签
     if (statusTag) {
       if (statusTag[1] === "JOIN") {
@@ -451,20 +705,28 @@ async function send(eventobj = null) {
         log(`${user.username} 离开了聊天室`, "system");
         return;
       }
+      if (data[0] === "EVENT") {
+        const event = data[2];
+        if (!event || !event.pubkey) return;
+        
+        // 更新用户映射
+        if (!mysMap[event.pubkey]) {
+          mysMap[event.pubkey] = event.username || event.pubkey.slice(0, 8); 
     }
     
     // 处理普通消息
     if (event.content && !event.content.includes("加入了聊天室") && !event.content.includes("离开了聊天室")) {
-      log(`${event.content}`, isMe ? "me" : "other");
+      log(`${user.username}: ${event.content}`, isMe ? "me" : "other");
     }
     
     // 更新partnerInfo（如果是对方）
     if (!isMe) {
       partnerInfo.pubkey = pubkey;
-      partnerInfo.username = event.content || user.username;  
-      partnerName.textContent = partnerInfo.username;
+      partnerInfo.username = user.username;
       partnerInfo.avatar = user.avatar;
       partnerInfo.online = true;
+      
+      partnerName.textContent = partnerInfo.username;
       partnerAvatar.src = partnerInfo.avatar;
       setPartnerStatus("online");
     }
@@ -474,13 +736,24 @@ async function send(eventobj = null) {
     try {
       const data = JSON.parse(e.data);
       console.log("收到:", e.data);
-      partnerName.textContent = "未知用户";
+      
       // 1. 处理数组格式的消息 (Nostr协议标准格式)
       if (Array.isArray(data)) {
         if (data[0] === "OK") {
           console.log("Relay确认:", data);
           return;
         }
+        
+        console.log("当前在线用户:", Object.values(mysMap));
+        
+        // 检查是否是通话相关事件
+        const callTag = event.tags?.find(t => t[0] === "call");
+        if (callTag) {
+          try {
+            const signal = JSON.parse(event.content);
+            // 只处理来自对方的消息（排除自己发送的消息）
+            if (event.pubkey === window.myPubKey) {
+                console.log("忽略自己发送的信令消息");
         if (data[0] === "EOSE") {
           console.log("EOSE 收到:", data[1]);
           return;
@@ -490,10 +763,11 @@ async function send(eventobj = null) {
           if (!event || !event.pubkey) return;
           
           // 更新用户映射
-          if (event.pubkey !== window.myPubKey) {
-             partnerInfo.username = event.username || event.pubkey.slice(0, 8);
-             partnerName.textContent = partnerInfo.username;
-           }
+          if (!mysMap[event.pubkey]) {
+            mysMap[event.pubkey] = event.username || event.pubkey.slice(0, 8); 
+          }
+          
+          console.log("当前在线用户:", Object.values(mysMap));
           
           // 检查是否是通话相关事件
           const callTag = event.tags?.find(t => t[0] === "call");
@@ -516,19 +790,51 @@ async function send(eventobj = null) {
                 showCallOverlay(true); // 显示被叫界面
                 alert(`${partnerInfo.username} 发起了语音通话`);
                 return;
+            }
+            // 处理来电
+            if (callTag[1] === "offer" && !isCalling) {
+              window.incomingOffer = { type: "offer", sdp: signal.sdp };
+              partnerInfo.username = signal.username || "未知用户";
+              partnerName.textContent = partnerInfo.username;
               }
-              
+
+              // 显示来电界面
+              showCallOverlay(true); // 显示被叫界面
+              alert(`${partnerInfo.username} 发起了语音通话`);
+              return;
+            }
+            
+            // 处理其他信令（answer、ice等）
+            if (peerConnection) {
               // 处理其他信令（answer、ice等）
               if (peerConnection) {
                 console.log("处理信令:", callTag[1], "当前状态:", peerConnection.signalingState);
+              if (callTag[1] === "answer") {
+                 console.log("设置远程answer");
+                 await peerConnection.setRemoteDescription(
                 
                 if (callTag[1] === "answer") {
                   console.log("设置远程answer");
                   await peerConnection.setRemoteDescription(
                     new RTCSessionDescription({
+                       type: "answer",
+                       sdp: signal.sdp
                       type: "answer",
                       sdp: signal.sdp
                     })
+                 );
+              } else {
+                    console.warn("忽略answer，当前状态不是have-local-offer:", peerConnection.signalingState);
+                 } if (peerConnection.remoteDescription) {
+                     console.log("添加ICE候选");
+                     await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                 } else {
+                     console.log("缓存ICE候选，等待远程描述");
+                     // 可以缓存ICE候选，等到有远程描述后再添加
+                 }else if (callTag[1] === "hangup") {
+                    console.log("收到挂断信令");
+                   endCall(false);
+                 }}
                   );
                 } else if (callTag[1] === "ice") {
                   if (peerConnection.remoteDescription) {
@@ -547,6 +853,9 @@ async function send(eventobj = null) {
             } catch (err) {
               console.error("解析通话信令失败", err);
             }
+            return;
+          } catch (err) {
+            console.error("解析通话信令失败", err);
           }
           
           // 处理普通事件
@@ -579,6 +888,9 @@ async function send(eventobj = null) {
             )
           );
         }
+        
+        // 处理普通事件
+        handleEvent(event);
         return;
       }
       
@@ -598,6 +910,11 @@ async function send(eventobj = null) {
       console.error("解析失败", e.data, err);
       log("解析失败: " + e.data, "system");
     }
+    
+    // 2. 处理非标准格式的消息（系统消息和旧版信令）
+    if (data.system) {
+      log(data.msg, "system");
+      return;
   };
   
   socket.onerror = () => log("❌ 连接出错", "system");
@@ -712,87 +1029,125 @@ async function send(eventobj = null) {
     }
     return true;
   }
-  let participants = []; 
-  let onlineUsers = [];
+  
   function getOnlineUsers() {
     return participants.filter(
       p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 10*60 * 1000
     );
   }
   
-async function startCall(isIncoming = false) {
-  if (isCalling) {
-    alert("当前正在通话中，请稍后");
-    return;
+  async function startCall(isIncoming = false) {
+    console.log("发起通话，isIncoming:", isIncoming);
+    // 检查并重置PeerConnection状态
+    if (!checkAndResetPeerConnection()) {
+      console.log("PeerConnection状态异常，已重置");
+    }
+
+    // 处理旧版信令格式（应该逐步迁移到使用Nostr事件的标准格式）
+    if (data.type === 'offer' && !isCalling) {
+      window.incomingOffer = data.offer;
+      partnerInfo.username = data.username;
+      partnerName.textContent = partnerInfo.username;
+      partnerAvatar.src = data.avatar || partnerAvatar.src;
+      startCall(true);
+    // 检查在线用户
+    const onlineUsers = participants.filter(
+      p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 100 * 60 * 1000
+    );
+    console.log("当前在线用户:", onlineUsers);
+    
+    if (onlineUsers.length === 0) {
+      alert("当前聊天室没有其他在线用户，无法发起通话");
+      return;
+    }
+
+    if (data.type === 'answer') {
+      if (peerConnection) {
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(
+            data.answer
+          )
+        );
+      }
+    const now = Math.floor(Date.now() / 1000);
+    if (!window.credential || now > window.credential.expireAt) {
+      alert("凭证已过期，请重新获取");
+      return;
+    }
+
+    if (data.type === 'ice' && data.candidate) {
+      if (peerConnection) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+      return;
+    // 确保 peerConnection 存在
+    if (!peerConnection || peerConnection.signalingState === "closed") {
+      await initPeerConnection();
+    }
+
+    if (data.type) {
+      await handleSignal(data);
+      return;
+    // 如果是主叫方（发起通话）
+    if (!isIncoming) {
+      // 创建并发送offer
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      
+      // 创建通话事件
+      const callEvent = {
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [["t", "room10011"], ["call", "offer"]],
+        content: JSON.stringify({
+          type: "offer",
+          sdp: offer.sdp,
+          username: window.name
+        })
+      };
+      
+      // 计算事件ID和签名
+      const payload = [0, callEvent.pubkey, callEvent.created_at, callEvent.kind, callEvent.tags, callEvent.content];
+      const serialized = JSON.stringify(payload);
+      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+      callEvent.id = toHex(new Uint8Array(hash));
+      const sig = await nobleSchnorr.sign(callEvent.id, window.myPrivKey);
+      callEvent.sig = toHex(sig);
+      
+      // 发送通话事件
+      socket.send(JSON.stringify(["EVENT", callEvent]));
+      log("📞 已发送呼叫请求", "system");
+    }
+
+  } catch (err) {
+    console.error("解析失败", e.data, err);
+    log("解析失败: " + e.data, "system");
+    // 显示通话界面
+    showCallOverlay(isIncoming);
+    isCalling = true;
   }
+};
+socket.onerror = () => log("❌ 连接出错", "system");
 
-  console.log("发起通话，isIncoming:", isIncoming);
-
-  // 检查并重置PeerConnection状态
-  if (!checkAndResetPeerConnection()) {
-    console.log("PeerConnection状态异常，已重置");
-  }
-
-  // 检查在线用户
-  const onlineUsers = participants.filter(
-    p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 100 * 60 * 1000
-  );
-  console.log("当前在线用户:", onlineUsers);
-
-  if (onlineUsers.length === 0) {
-    alert("当前聊天室没有其他在线用户，无法发起通话");
-    return;
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (!window.credential || now > window.credential.expireAt) {
-    alert("凭证已过期，请重新获取");
-    return;
-  }
-
-  // 确保 peerConnection 存在
-  if (!peerConnection || peerConnection.signalingState === "closed") {
-    await initPeerConnection();
-  }
-
-  // 如果是主叫方（发起通话）
-  if (!isIncoming) {
-    // 创建并发送offer
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    // 创建通话事件
-    const callEvent = {
-      pubkey: window.myPubKey,
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [["t", "room10011"], ["call", "offer"]],
-      content: JSON.stringify({
-        type: "offer",
-        sdp: offer.sdp,
-        username: window.name
-      })
-    };
-
-    // 计算事件ID和签名
-    const payload = [0, callEvent.pubkey, callEvent.created_at, callEvent.kind, callEvent.tags, callEvent.content];
-    const serialized = JSON.stringify(payload);
-    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-    callEvent.id = toHex(new Uint8Array(hash));
-    const sig = await nobleSchnorr.sign(callEvent.id, window.myPrivKey);
-    callEvent.sig = toHex(sig);
-
-    // 发送通话事件
-    socket.send(JSON.stringify(["EVENT", callEvent]));
-    log("📞 已发送呼叫请求", "system");
-  }
-
-  // 显示通话界面
-  showCallOverlay(isIncoming);
-  isCalling = true;
+function log(message, type="other"){
+  const logDiv = document.getElementById("log");
+  if(!logDiv) return; 
+  const msgDiv = document.createElement("div");
+  msgDiv.className = `msg ${type}`;
+  msgDiv.textContent = message;
+  logDiv.appendChild(msgDiv);
+  logDiv.scrollTop = logDiv.scrollHeight;
 }
 
-document.getElementById("callBtn").addEventListener("click", () => startCall(false));
+// -------------------- WebRTC语音通话 --------------------
+let localStream, peerConnection, isCalling = false;
+const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+async function initPeerConnection() {
+  try {
+    // 如果已存在PeerConnection，先关闭它
+    if (peerConnection) {
+      peerConnection.close();
   // 显示通话界面的函数
   function showCallOverlay(isIncoming) {
     // 移除已存在的通话界面（如果有）
@@ -800,7 +1155,17 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
     if (existingOverlay) {
       existingOverlay.remove();
     }
+
+    peerConnection = new RTCPeerConnection(config);
     
+    // 添加状态监听
+    peerConnection.onconnectionstatechange = () => {
+      console.log("连接状态变化:", peerConnection.connectionState);
+    };
+    
+    peerConnection.onsignalingstatechange = () => {
+      console.log("信令状态变化:", peerConnection.signalingState);
+    };
     const callOverlay = document.createElement('div');
     callOverlay.id = 'callOverlay';
     Object.assign(callOverlay.style, {
@@ -829,7 +1194,10 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
       fontSize: '20px'
     });
     callOverlay.appendChild(status);
-    
+
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log("ICE连接状态变化:", peerConnection.iceConnectionState);
+    };
     // 添加通话计时器
     const timer = document.createElement('div');
     timer.id = 'callTimer';
@@ -841,7 +1209,10 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
       fontWeight: 'bold'
     });
     callOverlay.appendChild(timer);
-    
+
+    peerConnection.onicegatheringstatechange = () => {
+      console.log("ICE收集状态变化:", peerConnection.iceGatheringState);
+    };
     // 只在主叫方播放铃声
     if (!isIncoming) {
       const audio = document.createElement('audio');
@@ -851,6 +1222,9 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
       callOverlay.appendChild(audio);
     }
 
+    // 获取本地音频流
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
     const hangupBtn = document.createElement('button');
     hangupBtn.innerText = '📞挂断';
     Object.assign(hangupBtn.style, {
@@ -861,6 +1235,18 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
     });
     hangupBtn.onclick = () => endCall(true);
 
+    // 播放远端音频
+    peerConnection.ontrack = (event) => {
+      console.log("收到远端音轨");
+      let remoteAudio = document.getElementById("remoteAudio");
+      if (!remoteAudio) {
+        remoteAudio = document.createElement("audio");
+        remoteAudio.id = "remoteAudio";
+        remoteAudio.autoplay = true;
+        document.body.appendChild(remoteAudio);
+      }
+      remoteAudio.srcObject = event.streams[0];
+    };
     const acceptBtn = document.createElement('button');
     acceptBtn.innerText = '📞接听';
     Object.assign(acceptBtn.style, {
@@ -870,6 +1256,89 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
     });
     acceptBtn.onclick = () => acceptCall();
 
+    // 处理 ICE 候选
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log("生成ICE候选");
+        const iceEvent = {
+          pubkey: window.myPubKey,
+          created_at: Math.floor(Date.now() / 1000),
+          kind: 1,
+          tags: [["t", "room10011"], ["call", "ice"]],
+          content: JSON.stringify({ 
+            type: "ice", 
+            candidate: event.candidate 
+          })
+        };
+        
+        // 计算事件ID和签名
+        const payload = [0, iceEvent.pubkey, iceEvent.created_at, iceEvent.kind, iceEvent.tags, iceEvent.content];
+        const serialized = JSON.stringify(payload);
+        const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+        iceEvent.id = toHex(new Uint8Array(hash));
+        const sig = await nobleSchnorr.sign(iceEvent.id, window.myPrivKey);
+        iceEvent.sig = toHex(sig);
+        
+        // 发送ICE候选事件
+        socket.send(JSON.stringify(["EVENT", iceEvent]));
+      } else {
+        console.log("ICE候选收集完成");
+      }
+    };
+    
+  } catch (err) {
+    console.error("初始化PeerConnection失败", err);
+    alert("初始化语音通话失败: " + err.message);
+    endCall(true);
+  }
+}
+// 添加一个函数来检查并恢复PeerConnection状态
+function checkAndResetPeerConnection() {
+  if (peerConnection) {
+    const state = peerConnection.signalingState;
+    console.log("当前PeerConnection状态:", state);
+    
+    // 如果状态不是stable，可能需要重置
+    if (state !== "stable") {
+      console.log("重置PeerConnection");
+      peerConnection.close();
+      peerConnection = null;
+      return false;
+    }
+  }
+  return true;
+}
+function getOnlineUsers() {
+  return participants.filter(
+    p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 10*60 * 1000
+  );
+}
+async function startCall(isIncoming = false) {
+  console.log("发起通话，isIncoming:", isIncoming);
+   // 检查并重置PeerConnection状态
+  if (!checkAndResetPeerConnection()) {
+    console.log("PeerConnection状态异常，已重置");
+  }
+  // 检查在线用户
+  const onlineUsers = participants.filter(
+    p => p.pubkey !== window.myPubKey && (Date.now() - p.lastSeen) < 100 * 60 * 1000
+  );
+  console.log("当前在线用户:", onlineUsers);
+  
+  if (onlineUsers.length === 0) {
+    alert("当前聊天室没有其他在线用户，无法发起通话");
+    return;
+  }
+  
+  const now = Math.floor(Date.now() / 1000);
+  if (!window.credential || now > window.credential.expireAt) {
+    alert("凭证已过期，请重新获取");
+    return;
+  }
+  
+  // 确保 peerConnection 存在
+  if (!peerConnection || peerConnection.signalingState === "closed") {
+    await initPeerConnection();
     const btnContainer = document.createElement('div');
     btnContainer.style.display = 'flex';
     btnContainer.style.gap = '20px';
@@ -879,24 +1348,145 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
 
     document.body.appendChild(callOverlay);
   }
-  
+
+  // 如果是主叫方（发起通话）
+  if (!isIncoming) {
+    // 创建并发送offer
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
   // 启动通话计时器
   function startCallTimer() {
     // 清除现有的计时器（如果有）
     if (callTimerInterval) {
       clearInterval(callTimerInterval);
     }
-    
+
+    // 创建通话事件
+    const callEvent = {
+      pubkey: window.myPubKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [["t", "room10011"], ["call", "offer"]],
+      content: JSON.stringify({
+        type: "offer",
+        sdp: offer.sdp,
+        username: window.name
+      })
+    };
     // 记录通话开始时间
     callStartTime = new Date();
-    
+
+    // 计算事件ID和签名
+    const payload = [0, callEvent.pubkey, callEvent.created_at, callEvent.kind, callEvent.tags, callEvent.content];
+    const serialized = JSON.stringify(payload);
+    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+    callEvent.id = toHex(new Uint8Array(hash));
+    const sig = await nobleSchnorr.sign(callEvent.id, window.myPrivKey);
+    callEvent.sig = toHex(sig);
     // 更新计时器显示
     updateCallTimer();
-    
+
+    // 发送通话事件
+    socket.send(JSON.stringify(["EVENT", callEvent]));
+    log("📞 已发送呼叫请求", "system");
+  }
+  
+  // 显示通话界面
+  showCallOverlay(isIncoming);
+  isCalling = true;
+}
+
+// 显示通话界面的函数
+function showCallOverlay(isIncoming) {
+  // 移除已存在的通话界面（如果有）
+  const existingOverlay = document.getElementById('callOverlay');
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
+  
+  const callOverlay = document.createElement('div');
+  callOverlay.id = 'callOverlay';
+  Object.assign(callOverlay.style, {
+    position: 'fixed', 
+    top: 0, 
+    left: 0, 
+    width: '100%', 
+    height: '100%',
+    background: 'rgba(255,255,255,0.2)', 
+    backdropFilter: 'blur(10px)',
+    display: 'flex', 
+    flexDirection: 'column', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    zIndex: 9999
+  });
+
+  const status = document.createElement('div');
+  status.id = 'callStatus';
+  status.innerText = isIncoming 
+    ? `${partnerInfo.username} 来电` 
+    : '正在等待对方接听...';
+  Object.assign(status.style, {
+    marginBottom: '20px', 
+    color: '#fff', 
+    fontSize: '20px'
+  });
+  callOverlay.appendChild(status);
+  // 添加通话计时器
+  const timer = document.createElement('div');
+  timer.id = 'callTimer';
+  timer.innerText = '00:00:00';
+  Object.assign(timer.style, {
+    marginBottom: '20px', 
+    color: '#fff', 
+    fontSize: '24px',
+    fontWeight: 'bold'
+  });
+  callOverlay.appendChild(timer);
+  // 只在主叫方播放铃声
+  if (!isIncoming) {
+    const audio = document.createElement('audio');
+    audio.src = 'sound/DaDaDum - The Soundlings.mp3';
+    audio.loop = true;
+    audio.autoplay = true;
+    callOverlay.appendChild(audio);
     // 每秒更新一次计时器
     callTimerInterval = setInterval(updateCallTimer, 1000);
   }
 
+  const hangupBtn = document.createElement('button');
+  hangupBtn.innerText = '📞挂断';
+  Object.assign(hangupBtn.style, {
+    background: 'red', 
+    color: '#fff', 
+    marginRight: '20px', 
+    padding: '10px 20px'
+  });
+  hangupBtn.onclick = () => endCall(true);
+
+  const acceptBtn = document.createElement('button');
+  acceptBtn.innerText = '📞接听';
+  Object.assign(acceptBtn.style, {
+    background: 'green', 
+    color: '#fff', 
+    padding: '10px 20px'
+  });
+  acceptBtn.onclick = () => acceptCall();
+
+  const btnContainer = document.createElement('div');
+  btnContainer.style.display = 'flex';
+  btnContainer.style.gap = '20px';
+  if (isIncoming) btnContainer.appendChild(acceptBtn);
+  btnContainer.appendChild(hangupBtn);
+  callOverlay.appendChild(btnContainer);
+
+  document.body.appendChild(callOverlay);
+}
+// 启动通话计时器
+function startCallTimer() {
+  // 清除现有的计时器（如果有）
+  if (callTimerInterval) {
+    clearInterval(callTimerInterval);
   // 更新通话计时器显示
   function updateCallTimer() {
     const timerElement = document.getElementById('callTimer');
@@ -912,10 +1502,66 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
     const seconds = elapsedSeconds % 60;
     
     // 更新显示
-   timerElement.innerText = 
-  `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    timerElement.innerText = 
+      `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+  
+  // 记录通话开始时间
+  callStartTime = new Date();
+  
+  // 更新计时器显示
+  updateCallTimer();
+  
+  // 每秒更新一次计时器
+  callTimerInterval = setInterval(updateCallTimer, 1000);
+}
 
+// 更新通话计时器显示
+function updateCallTimer() {
+  const timerElement = document.getElementById('callTimer');
+  if (!timerElement) return;
+  
+  // 计算通话时长（秒）
+  const now = new Date();
+  const elapsedSeconds = Math.floor((now - callStartTime) / 1000);
+  
+  // 格式化为HH:MM:SS
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+  
+  // 更新显示
+  timerElement.innerText = 
+    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
 
+// 停止通话计时器
+function stopCallTimer() {
+  if (callTimerInterval) {
+    clearInterval(callTimerInterval);
+    callTimerInterval = null;
+  }
+  
+  // 重置计时器显示
+  const timerElement = document.getElementById('callTimer');
+  if (timerElement) {
+    timerElement.innerText = '00:00:00';
+  }
+}
+async function acceptCall() {
+  if (!peerConnection) {
+    await initPeerConnection();
+  }
+  
+  if (!window.incomingOffer) {
+    console.error("没有收到 offer，无法接听");
+    return;
+  }
+  
+  // 更新界面状态
+  const callStatus = document.getElementById('callStatus');
+  if (callStatus) {
+    callStatus.innerText = '已接听，正在建立通话...';
   // 停止通话计时器
   function stopCallTimer() {
     if (callTimerInterval) {
@@ -929,8 +1575,12 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
       timerElement.innerText = '00:00:00';
     }
   }
-}
-  
+
+  // 停止铃声（如果有）
+  const audio = document.querySelector('#callOverlay audio');
+  if (audio) {
+    audio.pause();
+  }
   async function acceptCall() {
     if (!peerConnection) {
       await initPeerConnection();
@@ -953,34 +1603,102 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
       audio.pause();
     }
 
+  // 设置远程描述
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
     // 设置远程描述
     await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
 
+  // 创建并设置本地描述（Answer）
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
     // 创建并设置本地描述（Answer）
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
+  // 发送 Answer 给主叫
+  const answerEvent = {
+    pubkey: window.myPubKey,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 1,
+    tags: [["t", "room10011"], ["call", "answer"]],
+    content: JSON.stringify({
+      type: 'answer',
+      sdp: answer.sdp,
+      username: window.name
+    })
+  };
+  
+  // 计算事件ID和签名
+  const payload = [0, answerEvent.pubkey, answerEvent.created_at, answerEvent.kind, answerEvent.tags, answerEvent.content];
+  const serialized = JSON.stringify(payload);
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+  answerEvent.id = toHex(new Uint8Array(hash));
+  const sig = await nobleSchnorr.sign(answerEvent.id, window.myPrivKey);
+  answerEvent.sig = toHex(sig);
+  
+  // 发送应答事件
+  socket.send(JSON.stringify(["EVENT", answerEvent]));
+  // 启动通话计时器
+  startCallTimer();
+  // 更新 UI
+  if (callStatus) {
+    callStatus.innerText = "通话中...";
+  }
+}
+
+function endCall(isCaller = false) {
+  console.log("结束通话，isCaller:", isCaller);
+  // 停止通话计时器
+  stopCallTimer();
+  // 发送挂断信令
+  if (isCaller && socket && socket.readyState === WebSocket.OPEN) {
+    const hangupEvent = {
     // 发送 Answer 给主叫
     const answerEvent = {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
+      tags: [["t", "room10011"], ["call", "hangup"]],
       tags: [["t", "room10011"], ["call", "answer"]],
       content: JSON.stringify({
+        type: "hangup"
         type: 'answer',
         sdp: answer.sdp,
         username: window.name
       })
     };
-    
+
     // 计算事件ID和签名
+    const payload = [0, hangupEvent.pubkey, hangupEvent.created_at, hangupEvent.kind, hangupEvent.tags, hangupEvent.content];
     const payload = [0, answerEvent.pubkey, answerEvent.created_at, answerEvent.kind, answerEvent.tags, answerEvent.content];
     const serialized = JSON.stringify(payload);
     const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+    hangupEvent.id = toHex(new Uint8Array(hash));
+    const sig = await nobleSchnorr.sign(hangupEvent.id, window.myPrivKey);
+    hangupEvent.sig = toHex(sig);
     answerEvent.id = toHex(new Uint8Array(hash));
     const sig = await nobleSchnorr.sign(answerEvent.id, window.myPrivKey);
     answerEvent.sig = toHex(sig);
-    
+
+    socket.send(JSON.stringify(["EVENT", hangupEvent]));
+  }
+  
+  // 关闭PeerConnection
+  if (peerConnection) {
+    peerConnection.close();
+    peerConnection = null;
+  }
+  
+  // 停止本地流
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+  }
+  
+  // 移除通话界面
+  const overlay = document.getElementById('callOverlay');
+  if (overlay) {
+    overlay.remove();
     // 发送应答事件
     socket.send(JSON.stringify(["EVENT", answerEvent]));
     
@@ -992,21 +1710,27 @@ document.getElementById("callBtn").addEventListener("click", () => startCall(fal
       callStatus.innerText = "通话中...";
     }
   }
+  
+  // 移除远端音频元素
+  const remoteAudio = document.getElementById("remoteAudio");
+  if (remoteAudio) {
+    remoteAudio.remove();
 
-async function endCall(isCaller = false) {
+  function endCall(isCaller = false) {
     console.log("结束通话，isCaller:", isCaller);
-    
     // 停止通话计时器
     stopCallTimer();
-
-    // 确保 WebSocket 和 PeerConnection 正常关闭
+    
+    // 发送挂断信令
     if (isCaller && socket && socket.readyState === WebSocket.OPEN) {
       const hangupEvent = {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
         tags: [["t", "room10011"], ["call", "hangup"]],
-        content: JSON.stringify({ type: "hangup" })
+        content: JSON.stringify({
+          type: "hangup"
+        })
       };
       
       // 计算事件ID和签名
@@ -1019,36 +1743,42 @@ async function endCall(isCaller = false) {
       
       socket.send(JSON.stringify(["EVENT", hangupEvent]));
     }
-
+    
     // 关闭PeerConnection
     if (peerConnection) {
       peerConnection.close();
       peerConnection = null;
     }
-
+    
     // 停止本地流
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
       localStream = null;
     }
-
+    
     // 移除通话界面
     const overlay = document.getElementById('callOverlay');
     if (overlay) {
       overlay.remove();
     }
-
+    
     // 移除远端音频元素
     const remoteAudio = document.getElementById("remoteAudio");
     if (remoteAudio) {
       remoteAudio.remove();
     }
-
+    
     isCalling = false;
     window.incomingOffer = null;
     
     log("通话已结束", "system");
   }
+  
+  isCalling = false;
+  window.incomingOffer = null;
+  
+  log("通话已结束", "system");
+}
 </script>
 </body>
 </html>

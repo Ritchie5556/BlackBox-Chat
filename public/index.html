@@ -182,8 +182,10 @@ import { schnorr } from 'https://esm.sh/@noble/curves/secp256k1';
 const priv = new Uint8Array(32);
 crypto.getRandomValues(priv);
 console.log(priv); 
-const pub = secp256k1.getPublicKey(priv);
-window.myPrivKey = priv;   // ✅ 补上这行
+  
+const pubtype = secp256k1.getPublicKey(priv, false); 
+const pub = pubtype.slice(1, 33);  
+window.myPrivKey = priv;   
 window.myPubKey  = toHex(pub); 
   // === 生成凭证 ===
   async function generateCredential() {

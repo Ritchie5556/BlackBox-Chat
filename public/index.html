@@ -282,7 +282,7 @@ const pub = secp256k1.getPublicKey(priv);
     msgInput.focus();
   }
   
-async function send(eventobj=null) {
+window.send=async function send(eventobj=null) {
   if (eventobj) {
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(["EVENT", eventobj]));
@@ -317,9 +317,13 @@ async function send(eventobj=null) {
       console.log("id打印出:", eventobj.id);
 
       // 签名
-      const sig = await nobleSchnorr.sign(uint8Hash, window.myPrivKey);  // 只签名一次
+     // eventobj.sig = toHex(sig);  // 将签名转换为十六进制字符串
+      
+      // 发送签名时用
+      const sig = await schnorr.sign(eventobj.id, window.myPrivKey);
+      console.log("sig打印出:", sig);
       eventobj.sig = toHex(sig);  // 将签名转换为十六进制字符串
-
+      console.log("转换后的sig打印出:", eventobj.sig);
       // 发送
       socket.send(JSON.stringify(["EVENT", eventobj]));
       

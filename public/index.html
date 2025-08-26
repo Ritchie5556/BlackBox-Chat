@@ -210,6 +210,7 @@ const pub = secp256k1.getPublicKey(priv);
   generateCredential();
 
   function toHex(bytes) {
+    console.log("传入有效参数:",bytes)
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
   
@@ -311,7 +312,11 @@ const pub = secp256k1.getPublicKey(priv);
         const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
         const serialized = JSON.stringify(payload);
         const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-        eventobj.id = toHex(new Uint8Array(hash));
+        const uint8Hash = new Uint8Array(hash);
+        console.log("转换为Uint8数组:",uint8Hash);  
+        const  hashId=toHex(uint8Hash)
+        console.log("toHex函数打印出:"hashId)
+        eventobj.id = hashId;
         // 签名
         const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
         eventobj.sig = toHex(sig);

@@ -177,7 +177,6 @@
 
 <script type="module">
   import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
-  import { sha256 } from "https://esm.sh/@noble/hashes/sha256";
   window.myPubKey = toHex(pub);
   window.nobleSchnorr = schnorr;
   console.log("pubkey:", window.myPubKey);

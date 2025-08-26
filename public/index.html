@@ -282,55 +282,61 @@ const pub = secp256k1.getPublicKey(priv);
     msgInput.focus();
   }
   
-  async function send(eventobj=null) {
-    if (eventobj) {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify(["EVENT", eventobj]));
-        return;
-      } else {
-        log("信令发送失败，WebSocket未连接", "system");
-        return;
-      }
-    }
-    
-    if(!eventobj){
-      const msgInput = document.getElementById("msg");
-      const msg = msgInput.value.trim();
-      if (!msg) return;
-      
-      if(socket.readyState === WebSocket.OPEN){
-        const eventobj = {
-          id:"", 
-          pubkey: window.myPubKey,
-          created_at: Math.floor(Date.now() / 1000),
-          kind: 1,
-          tags: [["t", "room10011"]],   
-          content: msg
-        };
-
-        // 计算 id
-        const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
-        const serialized = JSON.stringify(payload);
-        const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-        const uint8Hash = new Uint8Array(hash);
-        console.log("转换为Uint8数组:",uint8Hash);  
-        const  hashId=toHex(uint8Hash)
-        console.log("toHex函数打印出:",hashId);
-        eventobj.id = hashId;
-        // 签名
-        const sig = await nobleSchnorr.sign(eventobj.id, window.myPrivKey);
-        eventobj.sig = toHex(sig);
-        // 发送
-        socket.send(JSON.stringify(["EVENT", eventobj]));
-        if(!eventobj.tags.some(t=>t[0]==="t")){
-          document.getElementById("msg").value = "";
-          log(`${msg}`, "me"); 
-        }
-      } else {
-        log("⚠️ 连接尚未建立或房间未分配", "system");
-      }
+async function send(eventobj=null) {
+  if (eventobj) {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(["EVENT", eventobj]));
+      return;
+    } else {
+      log("信令发送失败，WebSocket未连接", "system");
+      return;
     }
   }
+
+  if (!eventobj) {
+    const msgInput = document.getElementById("msg");
+    const msg = msgInput.value.trim();
+    if (!msg) return;
+
+    if (socket.readyState === WebSocket.OPEN) {
+      const eventobj = {
+        id: "",
+        pubkey: window.myPubKey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [["t", "room10011"]],
+        content: msg
+      };
+
+      // 计算 id
+      const payload = [0, eventobj.pubkey, eventobj.created_at, eventobj.kind, eventobj.tags, eventobj.content];
+      const serialized = JSON.stringify(payload);
+      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
+      const uint8Hash = new Uint8Array(hash);
+      eventobj.id = toHex(uint8Hash);  // 转换成十六进制字符串
+      console.log("id打印出:", eventobj.id);
+
+      // 签名
+      const sig = await nobleSchnorr.sign(uint8Hash, window.myPrivKey);  // 只签名一次
+      eventobj.sig = toHex(sig);  // 将签名转换为十六进制字符串
+
+      // 发送
+      socket.send(JSON.stringify(["EVENT", eventobj]));
+      
+      if (!eventobj.tags.some(t => t[0] === "t")) {
+        document.getElementById("msg").value = "";
+        log(`${msg}`, "me");
+      }
+    } else {
+      log("⚠️ 连接尚未建立或房间未分配", "system");
+    }
+  }
+}
+  // 确保 DOM 加载后再绑定事件
+  window.addEventListener("DOMContentLoaded", () => {
+    const sendBtn = document.getElementById("sendBtn");
+    sendBtn.addEventListener("click", () => send());
+  });
   
   function announceJoin(sername, pubkey, avatar) {
     // 先把自己加进在线列表

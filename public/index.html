@@ -177,7 +177,6 @@
 
 <script type="module">
   import { schnorr } from "https://esm.sh/@noble/curves/secp256k1";
-  window.myPubKey = toHex(pub);
   window.nobleSchnorr = schnorr;
   console.log("pubkey:", window.myPubKey);
   
@@ -209,9 +208,7 @@
   }
   
   generateCredential();
-</script>
 
-<script>
   function toHex(bytes) {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   }
@@ -220,7 +217,7 @@
   const partnerName = document.getElementById("partnerName");
   const logDiv = document.getElementById("log");
   const socket = new WebSocket("wss://relay.damus.io");
-  
+  window.myPubKey = toHex(pub);
   window.name = "";   
   window.onload = () => {
     let name = "";
@@ -1007,7 +1004,7 @@
     }
   }
   
-  function endCall(isCaller = false) {
+  async function endCall(isCaller = false) {
     console.log("结束通话，isCaller:", isCaller);
     // 停止通话计时器
     stopCallTimer();

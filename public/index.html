@@ -713,7 +713,7 @@ window.send=async function send(eventobj=null) {
           const serialized = JSON.stringify(payload);
           const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
           iceEvent.id = toHex(new Uint8Array(hash));
-          const sig = await nobleSchnorr.sign(iceEvent.id, window.myPrivKey);
+          const sig = await schnorr.sign(new TextEncoder().encode(iceEvent.id), window.myPrivKey); 
           iceEvent.sig = toHex(sig);
           
           // 发送ICE候选事件

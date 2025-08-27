@@ -541,10 +541,9 @@ window.send=async function send(eventobj=null) {
               
               // 处理来电
               if (callTag[1] === "offer" && !isCalling) {
-                window.incomingOffer = { type: "offer", sdp: signal.sdp };
+                window.incomingOffer = new RTCSessionDescription({ type: "offer", sdp: signal.sdp });
                 partnerInfo.username = signal.username || "未知用户";
-                partnerName.textContent = partnerInfo.username;
-                
+                partnerName.textContent = partnerInfo.username;    
                 // 显示来电界面
                 showCallOverlay(true); // 显示被叫界面
                 alert(`${partnerInfo.username} 发起了语音通话`);
@@ -711,9 +710,14 @@ window.send=async function send(eventobj=null) {
           // 计算事件ID和签名
           const payload = [0, iceEvent.pubkey, iceEvent.created_at, iceEvent.kind, iceEvent.tags, iceEvent.content];
           const serialized = JSON.stringify(payload);
-          const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-          iceEvent.id = toHex(new Uint8Array(hash));
-          const sig = await schnorr.sign(new TextEncoder().encode(iceEvent.id), window.myPrivKey); 
+          const hash = new Uint8Array(
+            await crypto.subtle.digest(
+              "SHA-256", 
+              new TextEncoder().encode(serialized)
+            )
+          );
+          iceEvent.id = toHex(hash);
+          const sig = await schnorr.sign(new TextEncoder().encode(hash), window.myPrivKey); 
           iceEvent.sig = toHex(sig);
           
           // 发送ICE候选事件
@@ -804,9 +808,14 @@ window.send=async function send(eventobj=null) {
       // 计算事件ID和签名
       const payload = [0, callEvent.pubkey, callEvent.created_at, callEvent.kind, callEvent.tags, callEvent.content];
       const serialized = JSON.stringify(payload);
-      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-      callEvent.id = toHex(new Uint8Array(hash));
-      const sig = await schnorr.sign(new TextEncoder().encode(callEvent.id), window.myPrivKey);
+      const hash = new Uint8Array(
+         await crypto.subtle.digest(
+            "SHA-256", 
+             new TextEncoder().encode(serialized)
+         )
+      );
+      callEvent.id = toHex(hash);
+      const sig = await schnorr.sign(new TextEncoder().encode(hash), window.myPrivKey);
       callEvent.sig = toHex(sig);
       // 发送通话事件
       socket.send(JSON.stringify(["EVENT", callEvent]));
@@ -1000,9 +1009,14 @@ window.send=async function send(eventobj=null) {
     // 计算事件ID和签名
     const payload = [0, answerEvent.pubkey, answerEvent.created_at, answerEvent.kind, answerEvent.tags, answerEvent.content];
     const serialized = JSON.stringify(payload);
-    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-    answerEvent.id = toHex(new Uint8Array(hash));
-    const sig = await schnorr.sign(new TextEncoder().encode(answerEvent.id),window.myPrivKey);
+    const hash =  new Uint8Array(
+      await crypto.subtle.digest(
+        "SHA-256", 
+        new TextEncoder().encode(serialized)
+      )
+    );
+    answerEvent.id = toHex(hash);
+    const sig = await schnorr.sign(new TextEncoder().encode(hash),window.myPrivKey);
     answerEvent.sig = toHex(sig);
     // 发送应答事件
     socket.send(JSON.stringify(["EVENT", answerEvent])); 
@@ -1035,9 +1049,14 @@ window.send=async function send(eventobj=null) {
       // 计算事件ID和签名
       const payload = [0, hangupEvent.pubkey, hangupEvent.created_at, hangupEvent.kind, hangupEvent.tags, hangupEvent.content];
       const serialized = JSON.stringify(payload);
-      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
-      hangupEvent.id = toHex(new Uint8Array(hash));
-      const sig = await schnorr.sign(new TextEncoder().encode(hangupEvent.id), window.myPrivKey);
+      const hash = new Uint8Array(
+        await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(serialized)
+        )
+      );
+      hangupEvent.id = toHex(hash);
+      const sig = await schnorr.sign(new TextEncoder().encode(hash), window.myPrivKey);
       hangupEvent.sig = toHex(sig);
       socket.send(JSON.stringify(["EVENT", hangupEvent]));
     }

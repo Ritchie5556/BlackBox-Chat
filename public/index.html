@@ -717,7 +717,7 @@ window.send=async function send(eventobj=null) {
             )
           );
           iceEvent.id = toHex(hash);
-          const sig = await schnorr.sign(new TextEncoder().encode(hash), window.myPrivKey); 
+          const sig = await schnorr.sign(hash, window.myPrivKey); 
           iceEvent.sig = toHex(sig);
           
           // 发送ICE候选事件
@@ -815,7 +815,7 @@ window.send=async function send(eventobj=null) {
          )
       );
       callEvent.id = toHex(hash);
-      const sig = await schnorr.sign(new TextEncoder().encode(hash), window.myPrivKey);
+      const sig = await schnorr.sign(hash, window.myPrivKey);
       callEvent.sig = toHex(sig);
       // 发送通话事件
       socket.send(JSON.stringify(["EVENT", callEvent]));
@@ -1056,7 +1056,7 @@ window.send=async function send(eventobj=null) {
         )
       );
       hangupEvent.id = toHex(hash);
-      const sig = await schnorr.sign(new TextEncoder().encode(hash), window.myPrivKey);
+      const sig = await schnorr.sign(hash, window.myPrivKey);
       hangupEvent.sig = toHex(sig);
       socket.send(JSON.stringify(["EVENT", hangupEvent]));
     }

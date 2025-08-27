@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+,<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="UTF-8" />
@@ -1002,7 +1002,7 @@ window.send=async function send(eventobj=null) {
     const serialized = JSON.stringify(payload);
     const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
     answerEvent.id = toHex(new Uint8Array(hash));
-    const sig = await schnorr.sign(new TextEncoder().encode(answerEvent.id) window.myPrivKey);
+    const sig = await schnorr.sign(new TextEncoder().encode(answerEvent.id),window.myPrivKey);
     answerEvent.sig = toHex(sig);
     // 发送应答事件
     socket.send(JSON.stringify(["EVENT", answerEvent])); 

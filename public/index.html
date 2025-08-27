@@ -310,7 +310,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10011"]],
+        tags: [["t", "room10012"]],
         content: msg
       };
 
@@ -357,7 +357,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10011"], ["status", "JOIN"]],
+      tags: [["t", "room10012"], ["status", "JOIN"]],
       content: window.name + " 加入了聊天室"
     });
   }
@@ -375,7 +375,7 @@ window.send=async function send(eventobj=null) {
           socket.send(JSON.stringify({
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10011"], ["call", "answer"]],
+            tags: [["t", "room10012"], ["call", "answer"]],
             content: JSON.stringify({
               type: "answer",
               answer: answer,
@@ -474,7 +474,7 @@ window.send=async function send(eventobj=null) {
           "sub1",
           { 
             kinds:[1],
-            "#t": ["room10011"] 
+            "#t": ["room10012"] 
           }
         ]
       )
@@ -485,7 +485,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10011"]],
+      tags: [["t", "room10012"]],
       content: `${window.name} 加入了聊天室`
     };
     
@@ -701,7 +701,7 @@ window.send=async function send(eventobj=null) {
             pubkey: window.myPubKey,
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10011"], ["call", "ice"]],
+            tags: [["t", "room10012"], ["call", "ice"]],
             content: JSON.stringify({ 
               type: "ice", 
               candidate: event.candidate 
@@ -793,7 +793,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10011"], ["call", "offer"]],
+        tags: [["t", "room10012"], ["call", "offer"]],
         content: JSON.stringify({
           type: "offer",
           sdp: offer.sdp,
@@ -989,7 +989,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10011"], ["call", "answer"]],
+      tags: [["t", "room10012"], ["call", "answer"]],
       content: JSON.stringify({
         type: 'answer',
         sdp: answer.sdp,
@@ -1026,7 +1026,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10011"], ["call", "hangup"]],
+        tags: [["t", "room10012"], ["call", "hangup"]],
         content: JSON.stringify({
           type: "hangup"
         })

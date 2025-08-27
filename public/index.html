@@ -603,7 +603,7 @@ window.send=async function send(eventobj=null) {
         startCall(true);
         return;
       }
-      
+
       if (data.type === 'answer') {
         if (peerConnection) {
           await peerConnection.setRemoteDescription(
@@ -621,8 +621,21 @@ window.send=async function send(eventobj=null) {
         }
         return;
       }
-      
-      if (data.type) {
+      if (msg.type === "accept-call" && msg.to === window.myPubKey) {
+       // 停止响铃
+         const audio = document.querySelector('#callOverlay audio');
+         if (audio) {
+            audio.pause();
+         }
+       // 更新 UI
+        const callStatus = document.getElementById('callStatus');
+        if (callStatus) {
+          callStatus.innerText = "通话中...";
+        }
+       // 启动计时器（用接收方的 startTime 保持同步）
+         startCallTimer(msg.startTime);
+     }
+     if (data.type) {
         await handleSignal(data);
         return;
       }
@@ -922,7 +935,7 @@ window.send=async function send(eventobj=null) {
     }
     
     // 记录通话开始时间
-    callStartTime = new Date();
+    callStartTime = startTime ? new Date(startTime) : new Date();
     
     // 更新计时器显示
     updateCallTimer();
@@ -988,24 +1001,35 @@ window.send=async function send(eventobj=null) {
 
     // 设置远程描述
     await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
-
     // 创建并设置本地描述（Answer）
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-
-    // 发送 Answer 给主叫
-    const answerEvent = {
-      pubkey: window.myPubKey,
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [["t", "room10012"], ["call", "answer"]],
-      content: JSON.stringify({
-        type: 'answer',
-        sdp: answer.sdp,
-        username: window.name
-      })
-    };
     
+       // 发送 Answer 给主叫
+      const answerEvent = {
+         pubkey: window.myPubKey,
+         created_at: Math.floor(Date.now() / 1000),
+         kind: 1,
+         tags: [["t", "room10012"], ["call", "answer"]],
+         content: JSON.stringify({
+           type: 'answer',
+           sdp: answer.sdp,
+           username: window.name
+        })
+     };
+     signAndSend(acceptEvent);
+    const acceptCallEvent = {
+       pubkey: window.myPubKey,
+       created_at: Math.floor(Date.now() / 1000),
+       kind: 1,
+       tags: [["t", "room10012"], ["call", "accept-call"]],
+       content: JSON.stringify({
+         type: "accept-call",
+         to: from, // 主叫的 pubkey
+         startTime: Date.now()
+       })
+   };
+    signAndSend(acceptCallEvent);
     // 计算事件ID和签名
     const payload = [0, answerEvent.pubkey, answerEvent.created_at, answerEvent.kind, answerEvent.tags, answerEvent.content];
     const serialized = JSON.stringify(payload);
@@ -1020,6 +1044,7 @@ window.send=async function send(eventobj=null) {
     answerEvent.sig = toHex(sig);
     // 发送应答事件
     socket.send(JSON.stringify(["EVENT", answerEvent])); 
+    enterCallUI();
     // 启动通话计时器
     startCallTimer();
     
@@ -1028,7 +1053,6 @@ window.send=async function send(eventobj=null) {
       callStatus.innerText = "通话中...";
     }
   }
-  
   async function endCall(isCaller = false) {
     console.log("结束通话，isCaller:", isCaller);
     // 停止通话计时器

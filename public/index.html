@@ -322,7 +322,7 @@ window.send=async function send(eventobj=null) {
       eventobj.id = toHex(uint8Hash);
       const sigUint8 = await schnorr.sign(uint8Hash, window.myPrivKey);
       eventobj.sig = toHex(sigUint8);
-     console.log("转换后的sig打印出:", eventobj.sig);
+      console.log("转换后的sig打印出:", eventobj.sig);
 
       // 发送
       socket.send(JSON.stringify(["EVENT", eventobj]));
@@ -806,9 +806,8 @@ window.send=async function send(eventobj=null) {
       const serialized = JSON.stringify(payload);
       const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
       callEvent.id = toHex(new Uint8Array(hash));
-      const sig = await nobleSchnorr.sign(callEvent.id, window.myPrivKey);
+      const sig = await schnorr.sign(new TextEncoder().encode(callEvent.sig), window.myPrivKey);
       callEvent.sig = toHex(sig);
-      
       // 发送通话事件
       socket.send(JSON.stringify(["EVENT", callEvent]));
       log("📞 已发送呼叫请求", "system");
@@ -1003,12 +1002,10 @@ window.send=async function send(eventobj=null) {
     const serialized = JSON.stringify(payload);
     const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
     answerEvent.id = toHex(new Uint8Array(hash));
-    const sig = await nobleSchnorr.sign(answerEvent.id, window.myPrivKey);
+    const sig = await schnorr.sign(new TextEncoder().encode(answerEvent.sig) window.myPrivKey);
     answerEvent.sig = toHex(sig);
-
     // 发送应答事件
-    socket.send(JSON.stringify(["EVENT", answerEvent]));
-    
+    socket.send(JSON.stringify(["EVENT", answerEvent])); 
     // 启动通话计时器
     startCallTimer();
     
@@ -1040,9 +1037,8 @@ window.send=async function send(eventobj=null) {
       const serialized = JSON.stringify(payload);
       const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized));
       hangupEvent.id = toHex(new Uint8Array(hash));
-      const sig = await nobleSchnorr.sign(hangupEvent.id, window.myPrivKey);
+      const sig = await schnorr.sign(new TextEncoder().encode(hangupEvent.id), window.myPrivKey);
       hangupEvent.sig = toHex(sig);
-      
       socket.send(JSON.stringify(["EVENT", hangupEvent]));
     }
     

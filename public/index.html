@@ -187,6 +187,7 @@ const pubtype = secp256k1.getPublicKey(priv, false);
 const pub = pubtype.slice(1, 33);  
 window.myPrivKey = priv;   
 window.myPubKey  = toHex(pub); 
+window.startCall = startCall;
   // === 生成凭证 ===
   async function generateCredential() {
     const now = Math.floor(Date.now() / 1000); // 秒级时间戳

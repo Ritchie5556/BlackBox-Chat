@@ -638,7 +638,6 @@ window.send=async function send(eventobj=null) {
         if (peerConnection) {
           await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
-        return;
       }
      }
      if (data.type) {

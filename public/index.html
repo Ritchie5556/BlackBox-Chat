@@ -852,8 +852,7 @@ window.send=async function send(eventobj=null) {
     showCallOverlay(isIncoming);
     isCalling = true;
   }
-  
-  // 显示通话界面的函数
+
 // 显示通话界面的函数
 function showCallOverlay(isIncoming) {
   // 移除已存在的通话界面（如果有）
@@ -1073,9 +1072,6 @@ function showCallOverlay(isIncoming) {
   }
   document.body.appendChild(callOverlay);
 }
-
-let callStartTime = null;
-let callTimerInterval = null;
 
 // 启动通话计时器
 function startCallTimer(startTime) {

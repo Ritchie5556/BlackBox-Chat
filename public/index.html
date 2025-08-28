@@ -573,6 +573,27 @@ window.send=async function send(eventobj=null) {
                 } else if (callTag[1] === "hangup") {
                   console.log("收到挂断信令");
                   endCall(false);
+                }else if(callTag[1] === "accept-call"){
+                    console.log("收到接听信令");
+                    const signal = JSON.parse(event.content);
+                      // 只处理发给我的 accept-call
+                   if (signal.to === window.myPubKey) {
+                       // 停止响铃
+                      const audio = document.querySelector('#callOverlay audio');
+                     if (audio) {
+                         audio.pause();
+                         audio.currentTime = 0;
+                     }
+
+                    // 更新 UI
+                     const callStatus = document.getElementById('callStatus');
+                     if (callStatus) {
+                         callStatus.innerText = "通话中...";
+                     }
+
+                     // 启动计时器（用接收方的 startTime 保持同步）
+                     startCallTimer(signal.startTime);
+                   }
                 }
               }
               return;
@@ -613,27 +634,12 @@ window.send=async function send(eventobj=null) {
           );
         }
         return;
-      }
-      
-      if (data.type === 'ice' && data.candidate) {
+      } else if (data.type === 'ice' && data.candidate) {
         if (peerConnection) {
           await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
         return;
       }
-      if (msg.type === "accept-call" && msg.to === window.myPubKey) {
-       // 停止响铃
-         const audio = document.querySelector('#callOverlay audio');
-         if (audio) {
-            audio.pause();
-         }
-       // 更新 UI
-        const callStatus = document.getElementById('callStatus');
-        if (callStatus) {
-          callStatus.innerText = "通话中...";
-        }
-       // 启动计时器（用接收方的 startTime 保持同步）
-         startCallTimer(msg.startTime);
      }
      if (data.type) {
         await handleSignal(data);
@@ -928,7 +934,7 @@ window.send=async function send(eventobj=null) {
   }
   
   // 启动通话计时器
-  function startCallTimer() {
+  function startCallTimer(startTime) {
     // 清除现有的计时器（如果有）
     if (callTimerInterval) {
       clearInterval(callTimerInterval);
@@ -977,7 +983,7 @@ window.send=async function send(eventobj=null) {
     }
   }
   
-  async function acceptCall() {
+  async function acceptCall(from) {
     if (!peerConnection) {
       await initPeerConnection();
     }
@@ -1004,7 +1010,6 @@ window.send=async function send(eventobj=null) {
     // 创建并设置本地描述（Answer）
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-    
        // 发送 Answer 给主叫
       const answerEvent = {
          pubkey: window.myPubKey,
@@ -1017,19 +1022,20 @@ window.send=async function send(eventobj=null) {
            username: window.name
         })
      };
-     signAndSend(acceptEvent);
+    await send(answerEvent);
+    const startTime = Date.now();
     const acceptCallEvent = {
        pubkey: window.myPubKey,
        created_at: Math.floor(Date.now() / 1000),
        kind: 1,
        tags: [["t", "room10013"], ["call", "accept-call"]],
        content: JSON.stringify({
-         type: "accept-call",
-         to: from, // 主叫的 pubkey
-         startTime: Date.now()
+         type: "accept-call",//
+         to: from, 
+         startTime
        })
    };
-    signAndSend(acceptCallEvent);
+    await send(acceptCallEvent);
     // 计算事件ID和签名
     const payload = [0, answerEvent.pubkey, answerEvent.created_at, answerEvent.kind, answerEvent.tags, answerEvent.content];
     const serialized = JSON.stringify(payload);
@@ -1042,16 +1048,21 @@ window.send=async function send(eventobj=null) {
     answerEvent.id = toHex(hash);
     const sig = await schnorr.sign(new TextEncoder().encode(hash),window.myPrivKey);
     answerEvent.sig = toHex(sig);
+    send({
+      type: "answerCall",
+      to: from,
+      sdp: pc.localDescription
+    });
     // 发送应答事件
     socket.send(JSON.stringify(["EVENT", answerEvent])); 
     enterCallUI();
-    // 启动通话计时器
-    startCallTimer();
-    
     // 更新 UI
+    const callStatus = document.getElementById('callStatus');
     if (callStatus) {
       callStatus.innerText = "通话中...";
     }
+     // 启动通话计时器
+     startCallTimer(startTime);
   }
   async function endCall(isCaller = false) {
     console.log("结束通话，isCaller:", isCaller);

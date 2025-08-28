@@ -717,6 +717,7 @@ window.send=async function send(eventobj=null) {
           document.body.appendChild(remoteAudio);
         }
         remoteAudio.srcObject = event.streams[0];
+        remoteAudio.play();
       };
 
       // 处理 ICE 候选
@@ -847,11 +848,10 @@ window.send=async function send(eventobj=null) {
       // 发送通话事件
       socket.send(JSON.stringify(["EVENT", callEvent]));
       log("📞 已发送呼叫请求", "system");
+      showCallOverlay(isIncoming);
+      startCallTimer(); 
+      isCalling = true;
     }
-
-    // 显示通话界面
-    showCallOverlay(isIncoming);
-    isCalling = true;
   }
 
 // 显示通话界面的函数
@@ -1074,33 +1074,28 @@ function showCallOverlay(isIncoming) {
   document.body.appendChild(callOverlay);
 }
 
+
+// 更新通话计时器显示
+function updateCallTimer() {
+  if (!callStartTime) return;
+    const now = new Date();
+    const elapsedSeconds = Math.floor((now - callStartTime) / 1000);
+    const elapsed = Math.floor((new Date() - callStartTime) / 1000);
+    const hours = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+    const minutes = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+    const seconds = String(elapsed % 60).padStart(2, '0');
+    const timerElement = document.getElementById('callTimer');
+    if (timerElement) timerElement.textContent = `${hours}:${minutes}:${seconds}`;
+}
 // 启动通话计时器
 function startCallTimer(startTime) {
-  stopCallTimer(); // 先确保旧的计时器被清掉
-  
+  if (callTimerInterval) {
+      clearInterval(callTimerInterval);
+  }
   callStartTime = startTime ? new Date(startTime) : new Date();
   updateCallTimer(); // 立即刷新一次
   callTimerInterval = setInterval(updateCallTimer, 1000);
 }
-
-// 更新通话计时器显示
-function updateCallTimer() {
-  const timerElement = document.getElementById('callTimer');
-  if (!timerElement || !callStartTime) return;
-
-  const now = new Date();
-  const elapsedSeconds = Math.floor((now - callStartTime) / 1000);
-
-  const hours = Math.floor(elapsedSeconds / 3600);
-  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-  const seconds = elapsedSeconds % 60;
-
-  timerElement.innerText =
-    `${hours.toString().padStart(2, '0')}:` +
-    `${minutes.toString().padStart(2, '0')}:` +
-    `${seconds.toString().padStart(2, '0')}`;
-}
-
 // 停止通话计时器
 function stopCallTimer() {
   if (callTimerInterval) {
@@ -1145,15 +1140,14 @@ async function acceptCall(from) {
       if (btnContainer) {
          const hangupBtn = btnContainer.querySelector('button');
          btnContainer.innerHTML = '';
-         btnContainer.appendChild(hangupBtn);
       }
     // 设置远程描述
     await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
-
+    startCallTimer(); 
     // 创建并设置本地描述（Answer）
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-
+    startCallTimer(); 
     // ========= 发送 Answer 给主叫 =========
     const answerEvent = {
       pubkey: window.myPubKey,

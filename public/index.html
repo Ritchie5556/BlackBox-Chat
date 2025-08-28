@@ -639,18 +639,17 @@ window.send=async function send(eventobj=null) {
           await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
       }
+        if (data.type) {
+          await handleSignal(data);
+          return;
+        }
+
      }
-     if (data.type) {
-        await handleSignal(data);
-        return;
-      }
-      
-    } catch (err) {
+      catch (err) {
       console.error("解析失败", e.data, err);
       log("解析失败: " + e.data, "system");
     }
-  };
-  
+  }
   socket.onerror = () => log("❌ 连接出错", "system");
 
   function log(message, type="other"){
@@ -982,87 +981,87 @@ window.send=async function send(eventobj=null) {
     }
   }
   
-  async function acceptCall(from) {
+async function acceptCall(from) {
+  try {
     if (!peerConnection) {
       await initPeerConnection();
     }
-    
+
     if (!window.incomingOffer) {
       console.error("没有收到 offer，无法接听");
       return;
     }
-    
+
     // 更新界面状态
     const callStatus = document.getElementById('callStatus');
     if (callStatus) {
       callStatus.innerText = '已接听，正在建立通话...';
     }
-    
-    // 停止铃声（如果有）
+
+    // 停止铃声
     const audio = document.querySelector('#callOverlay audio');
     if (audio) {
       audio.pause();
+      audio.currentTime = 0;
     }
 
     // 设置远程描述
     await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
+
     // 创建并设置本地描述（Answer）
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-       // 发送 Answer 给主叫
-      const answerEvent = {
-         pubkey: window.myPubKey,
-         created_at: Math.floor(Date.now() / 1000),
-         kind: 1,
-         tags: [["t", "room10013"], ["call", "answer"]],
-         content: JSON.stringify({
-           type: 'answer',
-           sdp: answer.sdp,
-           username: window.name
-        })
-     };
-    await send(answerEvent);
-    const startTime = Date.now();
-    const acceptCallEvent = {
-       pubkey: window.myPubKey,
-       created_at: Math.floor(Date.now() / 1000),
-       kind: 1,
-       tags: [["t", "room10013"], ["call", "accept-call"]],
-       content: JSON.stringify({
-         type: "accept-call",//
-         to: from, 
-         startTime
-       })
-   };
-    await send(acceptCallEvent);
-    // 计算事件ID和签名
+
+    // ========= 发送 Answer 给主叫 =========
+    const answerEvent = {
+      pubkey: window.myPubKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [["t", "room10013"], ["call", "answer"]],
+      content: JSON.stringify({
+        type: 'answer',
+        sdp: answer.sdp,
+        username: window.name
+      })
+    };
+
+    // 计算事件 ID 和签名
     const payload = [0, answerEvent.pubkey, answerEvent.created_at, answerEvent.kind, answerEvent.tags, answerEvent.content];
     const serialized = JSON.stringify(payload);
-    const hash =  new Uint8Array(
-      await crypto.subtle.digest(
-        "SHA-256", 
-        new TextEncoder().encode(serialized)
-      )
-    );
+    const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized)));
     answerEvent.id = toHex(hash);
-    const sig = await schnorr.sign(new TextEncoder().encode(hash),window.myPrivKey);
+    const sig = await schnorr.sign(new TextEncoder().encode(hash), window.myPrivKey);
     answerEvent.sig = toHex(sig);
-    send({
-      type: "answerCall",
-      to: from,
-      sdp: pc.localDescription
-    });
+
     // 发送应答事件
-    socket.send(JSON.stringify(["EVENT", answerEvent])); 
-    enterCallUI();
-    // 更新 UI
-    const callStatus = document.getElementById('callStatus');
-    if (callStatus) {
-      callStatus.innerText = "通话中...";
-    }
-     // 启动通话计时器
-     startCallTimer(startTime);
+    socket.send(JSON.stringify(["EVENT", answerEvent]));
+
+    // ========= 发送 accept-call 广播 =========
+    const startTime = Date.now();
+    const acceptCallEvent = {
+      pubkey: window.myPubKey,
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [["t", "room10013"], ["call", "accept-call"]],
+      content: JSON.stringify({
+        type: "accept-call",
+        to: from,       // 告诉主叫方是对他接听
+        startTime       // 保证双方计时同步
+      })
+    };
+    socket.send(JSON.stringify(["EVENT", acceptCallEvent]));
+
+    // ========= UI 和计时 =========
+    enterCallUI(); // 先进入 UI
+    const cs = document.getElementById('callStatus');
+    if (cs) cs.innerText = "通话中...";
+    startCallTimer(startTime); // 再启动计时器
+
+  } catch (err) {
+    console.error("接听失败:", err);
   }
+}
+
   async function endCall(isCaller = false) {
     console.log("结束通话，isCaller:", isCaller);
     // 停止通话计时器

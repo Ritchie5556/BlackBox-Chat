@@ -1,4 +1,4 @@
-,<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh">
 <head>
 <meta charset="UTF-8" />
@@ -593,12 +593,13 @@ window.send=async function send(eventobj=null) {
                      // === 移除接听按钮，只保留挂断 ===
                      const btnContainer = document.querySelector('#callOverlay div');
                      if (btnContainer) {
-                        const hangupBtn = btnContainer.querySelector('button:last-child'); // 挂断按钮
-                        btnContainer.innerHTML = ''; // 清空
-                          if (hangupBtn) {
-                            btnContainer.appendChild(hangupBtn); // 只保留挂断
-                          }
-                     }
+                         btnContainer.innerHTML = '';
+                          const hangupBtn = document.createElement('button');
+                          hangupBtn.id = 'hangupBtn';
+                          hangupBtn.innerText = '挂断';
+                          hangupBtn.onclick = () => endCall(true);
+                          btnContainer.appendChild(hangupBtn);
+                      }
                       acceptCall(from);
                      // 启动计时器（用接收方的 startTime 保持同步）
                      startCallTimer(signal.startTime);

@@ -595,7 +595,9 @@ window.send=async function send(eventobj=null) {
                      if (btnContainer) {
                         const hangupBtn = btnContainer.querySelector('button:last-child'); // 挂断按钮
                         btnContainer.innerHTML = ''; // 清空
-                        btnContainer.appendChild(hangupBtn); // 只保留挂断
+                          if (hangupBtn) {
+                            btnContainer.appendChild(hangupBtn); // 只保留挂断
+                          }
                      }
                       acceptCall(from);
                      // 启动计时器（用接收方的 startTime 保持同步）
@@ -852,141 +854,269 @@ window.send=async function send(eventobj=null) {
   }
   
   // 显示通话界面的函数
-  function showCallOverlay(isIncoming) {
-    // 移除已存在的通话界面（如果有）
-    const existingOverlay = document.getElementById('callOverlay');
-    if (existingOverlay) {
-      existingOverlay.remove();
-    }
-    
-    const callOverlay = document.createElement('div');
-    callOverlay.id = 'callOverlay';
-    Object.assign(callOverlay.style, {
-      position: 'fixed', 
-      top: 0, 
-      left: 0, 
-      width: '100%', 
-      height: '100%',
-      background: 'rgba(255,255,255,0.2)', 
-      backdropFilter: 'blur(10px)',
-      display: 'flex', 
-      flexDirection: 'column', 
-      justifyContent: 'center', 
-      alignItems: 'center',
-      zIndex: 9999
-    });
+// 显示通话界面的函数
+function showCallOverlay(isIncoming) {
+  // 移除已存在的通话界面（如果有）
+  const existingOverlay = document.getElementById('callOverlay');
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
+  
+  const callOverlay = document.createElement('div');
+  callOverlay.id = 'callOverlay';
+  Object.assign(callOverlay.style, {
+    position: 'fixed', 
+    top: 0, 
+    left: 0, 
+    width: '100%', 
+    height: '100%',
+    background: 'rgba(0,0,0,0.6)', 
+    backdropFilter: 'blur(10px)',
+    display: 'flex', 
+    flexDirection: 'column', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    zIndex: 9999
+  });
 
-    const status = document.createElement('div');
-    status.id = 'callStatus';
-    status.innerText = isIncoming 
-      ? `${partnerInfo.username} 来电` 
-      : '正在等待对方接听...';
-    Object.assign(status.style, {
-      marginBottom: '20px', 
-      color: '#fff', 
-      fontSize: '20px'
-    });
-    callOverlay.appendChild(status);
-    
-    // 添加通话计时器
-    const timer = document.createElement('div');
-    timer.id = 'callTimer';
-    timer.innerText = '00:00:00';
-    Object.assign(timer.style, {
-      marginBottom: '20px', 
-      color: '#fff', 
-      fontSize: '24px',
-      fontWeight: 'bold'
-    });
-    callOverlay.appendChild(timer);
-    
-    // 只在主叫方播放铃声
-    if (!isIncoming) {
-      const audio = document.createElement('audio');
-      audio.src = 'sound/DaDaDum - The Soundlings.mp3';
-      audio.loop = true;
-      audio.autoplay = true;
-      callOverlay.appendChild(audio);
-    }
+  // 状态文字
+  const status = document.createElement('div');
+  status.id = 'callStatus';
+  status.innerText = isIncoming 
+    ? `${partnerInfo.username} 来电` 
+    : '正在等待对方接听...';
+  Object.assign(status.style, {
+    marginBottom: '20px', 
+    color: '#fff', 
+    fontSize: '20px'
+  });
+  callOverlay.appendChild(status);
+  
+  // 通话计时器
+  const timer = document.createElement('div');
+  timer.id = 'callTimer';
+  timer.innerText = '00:00:00';
+  Object.assign(timer.style, {
+    marginBottom: '20px', 
+    color: '#fff', 
+    fontSize: '24px',
+    fontWeight: 'bold'
+  });
+  callOverlay.appendChild(timer);
+  
+  // 只在主叫方播放铃声
+  if (!isIncoming) {
+    const audio = document.createElement('audio');
+    audio.src = 'sound/DaDaDum - The Soundlings.mp3';
+    audio.loop = true;
+    audio.autoplay = true;
+    callOverlay.appendChild(audio);
+  }
 
-    const hangupBtn = document.createElement('button');
-    hangupBtn.innerText = '📞挂断';
-    Object.assign(hangupBtn.style, {
-      background: 'red', 
-      color: '#fff', 
-      marginRight: '20px', 
-      padding: '10px 20px'
-    });
-    hangupBtn.onclick = () => endCall(true);
+  // 创建按钮容器
+  const btnContainer = document.createElement('div');
+  btnContainer.style.display = 'flex';
+  btnContainer.style.gap = '60px';
+  btnContainer.style.alignItems = 'center';
+
+  // === 拒绝按钮 ===
+  const rejectBtn = document.createElement('button');
+  rejectBtn.innerText = '挂断';
+  rejectBtn.className = 'call-btn';
+  Object.assign(rejectBtn.style, {
+    width: '90px',
+    height: '90px',
+    borderRadius: '50%',
+    border: 'none',
+    color: '#fff',
+    fontSize: '18px',
+    cursor: 'pointer',
+    background: 'red',
+    position: 'relative',
+    overflow: 'hidden'
+  });
+  if (!isIncoming) {
+    // 主叫方的挂断按钮：呼吸+跳动
+    rejectBtn.style.boxShadow = '0 0 20px rgba(255,255,255,0.8)';
+    rejectBtn.style.animation = 'breathe 2s infinite, jump 1.5s infinite';
+  }
+  rejectBtn.onclick = () => endCall(true);
+
+  // === 接听按钮（仅来电时显示） ===
+  if (isIncoming) {
+    const acceptWrapper = document.createElement('div');
+    acceptWrapper.style.position = 'relative';
 
     const acceptBtn = document.createElement('button');
-    acceptBtn.innerText = '📞接听';
+    acceptBtn.innerText = '接听';
+    acceptBtn.className = 'call-btn';
     Object.assign(acceptBtn.style, {
-      background: 'green', 
-      color: '#fff', 
-      padding: '10px 20px'
+      width: '90px',
+      height: '90px',
+      borderRadius: '50%',
+      border: 'none',
+      color: '#fff',
+      fontSize: '18px',
+      cursor: 'pointer',
+      background: 'green',
+      position: 'relative'
     });
+    acceptWrapper.appendChild(acceptBtn);
+
+    // 向上箭头
+    const arrowUp = document.createElement('div');
+    arrowUp.innerHTML = `
+      <svg viewBox="0 0 24 24" style="width:30px;height:30px;fill:url(#grad);">
+        <path d="M12 2 L6 12 H10 V22 H14 V12 H18 Z"/>
+      </svg>
+    `;
+    Object.assign(arrowUp.style, {
+      position: 'absolute',
+      top: '-40px',
+      left: '30px',
+      animation: 'arrowFlowUp 1.5s linear infinite'
+    });
+    acceptWrapper.appendChild(arrowUp);
+
+    // 点击和滑动
     acceptBtn.onclick = () => acceptCall();
+    let startY = null;
+    acceptBtn.addEventListener("touchstart", e => {
+      startY = e.touches[0].clientY;
+    });
+    acceptBtn.addEventListener("touchend", e => {
+      const endY = e.changedTouches[0].clientY;
+      if (startY - endY > 50) {
+        acceptCall();
+      }
+    });
 
-    const btnContainer = document.createElement('div');
-    btnContainer.style.display = 'flex';
-    btnContainer.style.gap = '20px';
-    if (isIncoming) btnContainer.appendChild(acceptBtn);
-    btnContainer.appendChild(hangupBtn);
-    callOverlay.appendChild(btnContainer);
+    btnContainer.appendChild(acceptWrapper);
+  }
 
-    document.body.appendChild(callOverlay);
+  // 如果是接收方，加上拒绝按钮的右箭头
+  if (isIncoming) {
+    const rejectWrapper = document.createElement('div');
+    rejectWrapper.style.position = 'relative';
+    rejectWrapper.appendChild(rejectBtn);
+
+    const arrowRight = document.createElement('div');
+    arrowRight.innerHTML = `
+      <svg viewBox="0 0 24 24" style="width:30px;height:30px;fill:url(#grad);">
+        <path d="M22 12 L12 6 V10 H2 V14 H12 V18 Z"/>
+      </svg>
+    `;
+    Object.assign(arrowRight.style, {
+      position: 'absolute',
+      right: '-40px',
+      top: '30px',
+      animation: 'arrowFlowRight 1.5s linear infinite'
+    });
+    rejectWrapper.appendChild(arrowRight);
+
+    // 点击和滑动
+    let startX = null;
+    rejectBtn.addEventListener("touchstart", e => {
+      startX = e.touches[0].clientX;
+    });
+    rejectBtn.addEventListener("touchend", e => {
+      const endX = e.changedTouches[0].clientX;
+      if (endX - startX > 50) {
+        endCall(true);
+      }
+    });
+
+    btnContainer.appendChild(rejectWrapper);
+  } else {
+    btnContainer.appendChild(rejectBtn);
   }
+
+  callOverlay.appendChild(btnContainer);
+
+  // 注入全局 SVG 渐变 & 动画 keyframes（只注入一次）
+  if (!document.getElementById("callOverlayStyles")) {
+    const style = document.createElement("style");
+    style.id = "callOverlayStyles";
+    style.innerHTML = `
+      @keyframes breathe {
+        0%, 100% { box-shadow: 0 0 20px rgba(255,255,255,0.6); }
+        50% { box-shadow: 0 0 40px rgba(255,255,255,1); }
+      }
+      @keyframes jump {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+      }
+      @keyframes arrowFlowUp {
+        from { transform: translateY(20px); opacity: 0.2; }
+        to { transform: translateY(-20px); opacity: 1; }
+      }
+      @keyframes arrowFlowRight {
+        from { transform: translateX(-20px); opacity: 0.2; }
+        to { transform: translateX(20px); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    const svgDef = document.createElement("div");
+    svgDef.innerHTML = `
+      <svg width="0" height="0">
+        <defs>
+          <linearGradient id="grad" gradientTransform="rotate(90)">
+            <stop offset="0%" stop-color="white" stop-opacity="0"/>
+            <stop offset="50%" stop-color="white" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="white" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    `;
+    document.body.appendChild(svgDef);
+  }
+  document.body.appendChild(callOverlay);
+}
+
+let callStartTime = null;
+let callTimerInterval = null;
+
+// 启动通话计时器
+function startCallTimer(startTime) {
+  stopCallTimer(); // 先确保旧的计时器被清掉
   
-  // 启动通话计时器
-  function startCallTimer(startTime) {
-    // 清除现有的计时器（如果有）
-    if (callTimerInterval) {
-      clearInterval(callTimerInterval);
-    }
-    
-    // 记录通话开始时间
-    callStartTime = startTime ? new Date(startTime) : new Date();
-    
-    // 更新计时器显示
-    updateCallTimer();
-    
-    // 每秒更新一次计时器
-    callTimerInterval = setInterval(updateCallTimer, 1000);
+  callStartTime = startTime ? new Date(startTime) : new Date();
+  updateCallTimer(); // 立即刷新一次
+  callTimerInterval = setInterval(updateCallTimer, 1000);
+}
+
+// 更新通话计时器显示
+function updateCallTimer() {
+  const timerElement = document.getElementById('callTimer');
+  if (!timerElement || !callStartTime) return;
+
+  const now = new Date();
+  const elapsedSeconds = Math.floor((now - callStartTime) / 1000);
+
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+
+  timerElement.innerText =
+    `${hours.toString().padStart(2, '0')}:` +
+    `${minutes.toString().padStart(2, '0')}:` +
+    `${seconds.toString().padStart(2, '0')}`;
+}
+
+// 停止通话计时器
+function stopCallTimer() {
+  if (callTimerInterval) {
+    clearInterval(callTimerInterval);
+    callTimerInterval = null;
   }
-  
-  // 更新通话计时器显示
-  function updateCallTimer() {
-    const timerElement = document.getElementById('callTimer');
-    if (!timerElement) return;
-    
-    // 计算通话时长（秒）
-    const now = new Date();
-    const elapsedSeconds = Math.floor((now - callStartTime) / 1000);
-    
-    // 格式化为HH:MM:SS
-    const hours = Math.floor(elapsedSeconds / 3600);
-    const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-    const seconds = elapsedSeconds % 60;
-    
-    // 更新显示
-    timerElement.innerText = 
-      `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+  const timerElement = document.getElementById('callTimer');
+  if (timerElement) {
+    timerElement.innerText = '00:00:00';
   }
-  
-  // 停止通话计时器
-  function stopCallTimer() {
-    if (callTimerInterval) {
-      clearInterval(callTimerInterval);
-      callTimerInterval = null;
-    }
-    
-    // 重置计时器显示
-    const timerElement = document.getElementById('callTimer');
-    if (timerElement) {
-      timerElement.innerText = '00:00:00';
-    }
-  }
+  callStartTime = null;
+}
   
 async function acceptCall(from) {
   try {

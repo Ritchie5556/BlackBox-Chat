@@ -614,10 +614,7 @@ window.send=async function send(eventobj=null) {
                      // 启动计时器（用接收方的 startTime 保持同步）
                      startCallTimer(signal.startTime);
                    }
-                }
-              }
-              return;
-            } catch (err) {
+                } catch (err) {
               console.error("解析通话信令失败", err);
             }
             return;

@@ -310,7 +310,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10020"]],
+        tags: [["t", "room10021"]],
         content: msg
       };
 
@@ -357,7 +357,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10020"], ["status", "JOIN"]],
+      tags: [["t", "room10021"], ["status", "JOIN"]],
       content: window.name + " 加入了聊天室"
     });
   }
@@ -375,7 +375,7 @@ window.send=async function send(eventobj=null) {
           socket.send(JSON.stringify({
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10020"], ["call", "answer"]],
+            tags: [["t", "room10021"], ["call", "answer"]],
             content: JSON.stringify({
               type: "answer",
               answer: answer,
@@ -474,7 +474,7 @@ window.send=async function send(eventobj=null) {
           "sub1",
           { 
             kinds:[1],
-            "#t": ["room10020"] 
+            "#t": ["room10021"] 
           }
         ]
       )
@@ -485,7 +485,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10020"]],
+      tags: [["t", "room10021"]],
       content: `${window.name} 加入了聊天室`
     };
     
@@ -573,24 +573,29 @@ window.send=async function send(eventobj=null) {
                 } else if (callTag[1] === "hangup") {
                   console.log("收到挂断信令");
                   endCall(false);
-                }else if(callTag[1] === "accept-call"){
-                    console.log("收到接听信令");
-                    const signal = JSON.parse(event.content);
-                      // 只处理发给我的 accept-call
-                   if (signal.to === window.myPubKey) {
-                    // 停止响铃
+                }else if (callTag[1] === "accept-call") {
+                   console.log("收到接听信令");
+                   const signal = JSON.parse(event.content);
+                  // 只处理发给我的 accept-call
+                  if (signal.to === window.myPubKey) {
+                      // 停止响铃
                       const audio = document.querySelector('#callOverlay audio');
-                     if (audio) {
-                         audio.pause();
-                         audio.currentTime = 0;
-                     }
-
-                    // 更新 UI
-                     const callStatus = document.getElementById('callStatus');
-                     if (callStatus) {
-                         callStatus.innerText = "通话中...";
-                     }
-                     // === 移除接听按钮，只保留挂断 ===
+                      if (audio) {
+                          audio.pause();
+                          audio.currentTime = 0;
+                      }
+                      // 更新 UI
+                     const cs = document.getElementById('callStatus');
+                    if (cs) cs.innerText = "通话中...";
+                    // 启动计时器（使用对方回传的 startTime，保证同步）
+                    if (signal.startTime) {
+                      startCallTimer(signal.startTime);
+                    } else {
+                      startCallTimer(Date.now()); // 兜底
+                    }
+                 }
+              }
+                      // === 移除接听按钮，只保留挂断 ===
                      const btnContainer = document.querySelector('#callOverlay div');
                      if (btnContainer) {
                          btnContainer.innerHTML = '';
@@ -600,6 +605,11 @@ window.send=async function send(eventobj=null) {
                           hangupBtn.onclick = () => endCall(true);
                           btnContainer.appendChild(hangupBtn);
                       }
+                    // 更新 UI
+                     const callStatus = document.getElementById('callStatus');
+                     if (callStatus) {
+                         callStatus.innerText = "通话中...";
+                     }
                       acceptCall(from);
                      // 启动计时器（用接收方的 startTime 保持同步）
                      startCallTimer(signal.startTime);
@@ -728,7 +738,7 @@ window.send=async function send(eventobj=null) {
             pubkey: window.myPubKey,
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10020"], ["call", "ice"]],
+            tags: [["t", "room10021"], ["call", "ice"]],
             content: JSON.stringify({ 
               type: "ice", 
               candidate: event.candidate 
@@ -816,6 +826,8 @@ window.send=async function send(eventobj=null) {
 
     // 如果是主叫方（发起通话）
     if (!isIncoming) {
+      const startTime = Date.now();  // 统一通话开始时间
+      startCallTimer(startTime);      // 自己启动计时器
       // 创建并发送offer
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
@@ -825,11 +837,12 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10020"], ["call", "offer"]],
+        tags: [["t", "room10021"], ["call", "offer"]],
         content: JSON.stringify({
           type: "offer",
           sdp: offer.sdp,
-          username: window.name
+          username: window.name,
+          startTime:startTime
         })
       };
       
@@ -1076,13 +1089,13 @@ function showCallOverlay(isIncoming) {
   document.body.appendChild(callOverlay);
 }
 // 启动通话计时器
-function startCallTimer(startTime) {
-    if (callTimerInterval) {
+function startCallTimer(startTimestamp) {
+   if (callTimerInterval) {
       clearInterval(callTimerInterval);
-    }
-  callStartTime = startTime ? new Date(startTime) : new Date();
-  updateCallTimer(); // 立即刷新一次
-  callTimerInterval = setInterval(updateCallTimer, 1000);
+   }
+    callStartTime = new Date(startTimestamp);
+    updateCallTimer(); // 立即刷新一次
+    callTimerInterval = setInterval(updateCallTimer, 1000);
 }
 // 更新通话计时器显示
 function updateCallTimer() {
@@ -1108,7 +1121,7 @@ function stopCallTimer() {
   callStartTime = null;
 }
   
-async function acceptCall(from) {
+async function acceptCall(from,event) {
   try {
     if (!peerConnection) {
       await initPeerConnection();
@@ -1141,17 +1154,15 @@ async function acceptCall(from) {
       }
     // 设置远程描述
     await peerConnection.setRemoteDescription(new RTCSessionDescription(window.incomingOffer));
-    startCallTimer();  
     // 创建并设置本地描述（Answer）
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-    startCallTimer(); 
     // ========= 发送 Answer 给主叫 =========
     const answerEvent = {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10020"], ["call", "answer"]],
+      tags: [["t", "room10021"], ["call", "answer"]],
       content: JSON.stringify({
         type: 'answer',
         sdp: answer.sdp,
@@ -1176,11 +1187,11 @@ async function acceptCall(from) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10020"], ["call", "accept-call"]],
+      tags: [["t", "room10021"], ["call", "accept-call"]],
       content: JSON.stringify({
         type: "accept-call",
         to: from,       // 告诉主叫方是对他接听
-        startTime       // 保证双方计时同步
+        startTime: window.incomingOffer.startTime      // 保证双方计时同步
       })
     };
     socket.send(JSON.stringify(["EVENT", acceptCallEvent]));
@@ -1189,7 +1200,11 @@ async function acceptCall(from) {
     enterCall(); // 先进入 UI
     const cs = document.getElementById('callStatus');
     if (cs) cs.innerText = "通话中...";
-    startCallTimer(startTime); // 再启动计时器
+    const offerData = JSON.parse(event.content); // 解析信令内容
+    // 使用发起者传来的 startTime，如果没有就用当前时间（兜底）
+    const callStartTimeFromCaller = offerData.startTime ? new Date(offerData.startTime) : new Date();
+    // 启动计时器，但使用发起者时间
+    startCallTimer(window.incomingOffer.startTime || Date.now());
   } catch (err) {
     console.error("接听失败:", err);
   }
@@ -1206,7 +1221,7 @@ async function acceptCall(from) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10020"], ["call", "hangup"]],
+        tags: [["t", "room10021"], ["call", "hangup"]],
         content: JSON.stringify({
           type: "hangup"
         })

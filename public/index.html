@@ -1105,8 +1105,6 @@ function startCallTimer(startTimestamp) {
     if (cs) cs.innerText = `通话中 ${minutes}:${seconds.toString().padStart(2,'0')}`;
   }, 1000);
 }
- // 调用时：
-const startTime = Date.now();
 startCallTimer(startTime); 
 // 停止通话计时器
 function stopCallTimer() {
@@ -1121,7 +1119,6 @@ function stopCallTimer() {
   }
   callStartTime = null;
 }
-  
 async function acceptCall(from,event) {
   try {
     if (!peerConnection) {
@@ -1183,7 +1180,7 @@ async function acceptCall(from,event) {
     socket.send(JSON.stringify(["EVENT", answerEvent]));
 
     // ========= 发送 accept-call 广播 =========
-    const startTime = Date.now();
+    startTime = Date.now();
     const acceptCallEvent = {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),

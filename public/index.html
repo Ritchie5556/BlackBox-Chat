@@ -239,9 +239,7 @@ window.startCall = startCall;
   let partnerInfo = { name: "未知用户", avatar: "/image/f64be2438709ee1f11ad8754e282b1df.jpeg", online: false };
   let emojis = [];
   const mysMap = {}; // pubkey → 用户名映射
-  // 全局变量用于存储计时器
-  let callTimerInterval = null;
-  let callStartTime = null;
+
   
   //状态判断
   function setPartnerStatus(state){
@@ -310,7 +308,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10021"]],
+        tags: [["t", "room10022"]],
         content: msg
       };
 
@@ -357,7 +355,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10021"], ["status", "JOIN"]],
+      tags: [["t", "room10022"], ["status", "JOIN"]],
       content: window.name + " 加入了聊天室"
     });
   }
@@ -375,7 +373,7 @@ window.send=async function send(eventobj=null) {
           socket.send(JSON.stringify({
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10021"], ["call", "answer"]],
+            tags: [["t", "room10022"], ["call", "answer"]],
             content: JSON.stringify({
               type: "answer",
               answer: answer,
@@ -474,7 +472,7 @@ window.send=async function send(eventobj=null) {
           "sub1",
           { 
             kinds:[1],
-            "#t": ["room10021"] 
+            "#t": ["room10022"] 
           }
         ]
       )
@@ -485,7 +483,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10021"]],
+      tags: [["t", "room10022"]],
       content: `${window.name} 加入了聊天室`
     };
     
@@ -735,7 +733,7 @@ window.send=async function send(eventobj=null) {
             pubkey: window.myPubKey,
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10021"], ["call", "ice"]],
+            tags: [["t", "room10022"], ["call", "ice"]],
             content: JSON.stringify({ 
               type: "ice", 
               candidate: event.candidate 
@@ -834,7 +832,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10021"], ["call", "offer"]],
+        tags: [["t", "room10022"], ["call", "offer"]],
         content: JSON.stringify({
           type: "offer",
           sdp: offer.sdp,
@@ -1085,24 +1083,26 @@ function showCallOverlay(isIncoming) {
   }
   document.body.appendChild(callOverlay);
 }
+   // 全局变量用于存储计时器
+let callTimerInterval;
+let callStartTime = null; 
 // 启动通话计时器
 function startCallTimer(startTimestamp) {
+   const callStatus = document.getElementById('callStatus');
+   if(!callStatus){ return}
    if (callTimerInterval) {
       clearInterval(callTimerInterval);
    }
     callStartTime = new Date(startTimestamp);
-    updateCallTimer(); // 立即刷新一次
-    callTimerInterval = setInterval(updateCallTimer, 1000);
-}
-// 更新通话计时器显示
-function updateCallTimer() {
-  if (!callStartTime) return;
-    const elapsed = Math.floor((new Date() - callStartTime) / 1000); 
-    const hours = String(Math.floor(elapsed / 3600)).padStart(2, '0');
-    const minutes = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
-    const seconds = String(elapsed % 60).padStart(2, '0');
-    const timerElement = document.getElementById('callTimer');
-    if (timerElement) timerElement.textContent = `${hours}:${minutes}:${seconds}`;
+  // 清除旧的计时器
+  if (callTimerInterval) clearInterval(callTimerInterval);
+  callTimerInterval = setInterval(() => {
+    const now = Date.now();
+    const elapsed = now - startTime;
+    const seconds = Math.floor(elapsed / 1000) % 60;
+    const minutes = Math.floor(elapsed / (1000 * 60));
+    callStatus.innerText = `通话中 ${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }, 1000);
 }
 // 停止通话计时器
 function stopCallTimer() {
@@ -1159,7 +1159,7 @@ async function acceptCall(from,event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10021"], ["call", "answer"]],
+      tags: [["t", "room10022"], ["call", "answer"]],
       content: JSON.stringify({
         type: 'answer',
         sdp: answer.sdp,
@@ -1184,7 +1184,7 @@ async function acceptCall(from,event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10021"], ["call", "accept-call"]],
+      tags: [["t", "room10022"], ["call", "accept-call"]],
       content: JSON.stringify({
         type: "accept-call",
         to: from,       // 告诉主叫方是对他接听
@@ -1200,8 +1200,10 @@ async function acceptCall(from,event) {
     const offerData = JSON.parse(event.content); // 解析信令内容
     // 使用发起者传来的 startTime，如果没有就用当前时间（兜底）
     const callStartTimeFromCaller = offerData.startTime ? new Date(offerData.startTime) : new Date();
-    // 启动计时器，但使用发起者时间
-    startCallTimer(window.incomingOffer.startTime || Date.now());
+    const callStartTime = window.incomingOffer.startTime
+    ? window.incomingOffer.startTime * 1000 // 秒 -> 毫秒
+    : Date.now();
+     startCallTimer(callStartTime);
   } catch (err) {
     console.error("接听失败:", err);
   }
@@ -1218,7 +1220,7 @@ async function acceptCall(from,event) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10021"], ["call", "hangup"]],
+        tags: [["t", "room10022"], ["call", "hangup"]],
         content: JSON.stringify({
           type: "hangup"
         })

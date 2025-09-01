@@ -829,7 +829,7 @@ window.send=async function send(eventobj=null) {
       // 创建通话事件
       const callEvent = {
         pubkey: window.myPubKey,
-        created_at:Date.now(),
+        created_at:Math.floor(Date.now() / 1000),
         kind: 1,
         tags: [["t", "room10024"], ["call", "offer"]],
         content: JSON.stringify({
@@ -837,20 +837,15 @@ window.send=async function send(eventobj=null) {
           sdp: offer.sdp,
           username: window.name,
           startTime:startTime,
-          nonce: crypto.getRandomValues(new Uint32Array(1))[0]   // 加随机数，保证内容唯一
+          nonce: Math.random().toString(36).slice(2)   // 加随机数，保证内容唯一
         })
       };
       
       // 计算事件ID和签名
       const payload = [0, callEvent.pubkey, callEvent.created_at, callEvent.kind, callEvent.tags, callEvent.content];
       const serialized = JSON.stringify(payload);
-      const hash = new Uint8Array(
-         await crypto.subtle.digest(
-            "SHA-256", 
-             new TextEncoder().encode(serialized)
-         )
-      );
-      callEvent.id = toHex(hash); 
+      const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized)));
+      callEvent.id = toHex(hash);
       const sig = await schnorr.sign(hash, window.myPrivKey);
       callEvent.sig = toHex(sig);
       // 发送通话事件

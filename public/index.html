@@ -308,8 +308,9 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10022"]],
-        content: msg
+        tags: [["t", "room10024"]],
+        content: msg,
+        
       };
 
       // 计算 id
@@ -1216,7 +1217,7 @@ async function acceptCall(from,event) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10022"], ["call", "hangup"]],
+        tags: [["t", "room10024"], ["call", "hangup"]],
         content: JSON.stringify({
           type: "hangup"
         })

@@ -355,7 +355,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10023"], ["status", "JOIN"]],
+      tags: [["t", "room10024"], ["status", "JOIN"]],
       content: window.name + " 加入了聊天室"
     });
   }
@@ -373,7 +373,7 @@ window.send=async function send(eventobj=null) {
           socket.send(JSON.stringify({
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10023"], ["call", "answer"]],
+            tags: [["t", "room10024"], ["call", "answer"]],
             content: JSON.stringify({
               type: "answer",
               answer: answer,
@@ -472,7 +472,7 @@ window.send=async function send(eventobj=null) {
           "sub1",
           { 
             kinds:[1],
-            "#t": ["room10023"] 
+            "#t": ["room10024"] 
           }
         ]
       )
@@ -483,7 +483,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10023"]],
+      tags: [["t", "room10024"]],
       content: `${window.name} 加入了聊天室`
     };
     
@@ -733,7 +733,7 @@ window.send=async function send(eventobj=null) {
             pubkey: window.myPubKey,
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10023"], ["call", "ice"]],
+            tags: [["t", "room10024"], ["call", "ice"]],
             content: JSON.stringify({ 
               type: "ice", 
               candidate: event.candidate 
@@ -831,12 +831,13 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10023"], ["call", "offer"]],
+        tags: [["t", "room10024"], ["call", "offer"]],
         content: JSON.stringify({
           type: "offer",
           sdp: offer.sdp,
           username: window.name,
-          startTime:startTime
+          startTime:startTime,
+          nonce: Math.random().toString(36).substr(2, 5)  // 加随机数，保证内容唯一
         })
       };
       
@@ -1159,7 +1160,7 @@ async function acceptCall(from,event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10023"], ["call", "answer"]],
+      tags: [["t", "room10024"], ["call", "answer"]],
       content: JSON.stringify({
         type: 'answer',
         sdp: answer.sdp,
@@ -1184,7 +1185,7 @@ async function acceptCall(from,event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10023"], ["call", "accept-call"]],
+      tags: [["t", "room10024"], ["call", "accept-call"]],
       content: JSON.stringify({
         type: "accept-call",
         to: from,       // 告诉主叫方是对他接听

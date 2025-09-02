@@ -308,7 +308,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10026"]],
+        tags: [["t", "room10027"]],
         content: msg,
         
       };
@@ -356,7 +356,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10026"], ["status", "JOIN"]],
+      tags: [["t", "room10027"], ["status", "JOIN"]],
       content: window.name + " 加入了聊天室"
     });
   }
@@ -374,7 +374,7 @@ window.send=async function send(eventobj=null) {
           socket.send(JSON.stringify({
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10026"], ["call", "answer"]],
+            tags: [["t", "room10027"], ["call", "answer"]],
             content: JSON.stringify({
               type: "answer",
               answer: answer,
@@ -420,7 +420,7 @@ window.send=async function send(eventobj=null) {
     if (!user) {
       user = {
         pubkey: pubkey,
-        username: isMe ? window.name : pubkey.slice(0, 8),
+        username: isMe ? window.name : "未知用户",
         avatar: "https://robohash.org/" + pubkey,
         lastSeen: Date.now()
       };
@@ -473,7 +473,7 @@ window.send=async function send(eventobj=null) {
           "sub1",
           { 
             kinds:[1],
-            "#t": ["room10026"] 
+            "#t": ["room10027"] 
           }
         ]
       )
@@ -484,7 +484,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10026"]],
+      tags: [["t", "room10027"]],
       content: `${window.name} 加入了聊天室`
     };
     
@@ -522,7 +522,7 @@ window.send=async function send(eventobj=null) {
           
           // 更新用户映射
           if (!mysMap[event.pubkey]) {
-            mysMap[event.pubkey] = event.username || event.pubkey.slice(0, 8); 
+            mysMap[event.pubkey] = event.username || "未知用户"; 
           }
           
           console.log("当前在线用户:", Object.values(mysMap));
@@ -736,7 +736,7 @@ window.send=async function send(eventobj=null) {
             pubkey: window.myPubKey,
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10026"], ["call", "ice"]],
+            tags: [["t", "room10027"], ["call", "ice"]],
             content: JSON.stringify({ 
               type: "ice", 
               candidate: event.candidate 
@@ -792,8 +792,10 @@ window.send=async function send(eventobj=null) {
     );
   }
   let startTime;
+  let startTimeMs;
   async function startCall(isIncoming = false) {
     console.log("发起通话，isIncoming:", isIncoming);
+    let startTimeMs = Date.now();  
     // 检查并重置PeerConnection状态
     if (!checkAndResetPeerConnection()) {
       console.log("PeerConnection状态异常，已重置");
@@ -823,7 +825,7 @@ window.send=async function send(eventobj=null) {
 
     // 如果是主叫方（发起通话）
     if (!isIncoming) {
-      startTime = Date.now();  // 统一通话开始时间
+      startTime = Date.now();   
       startCallTimer(startTimeMs);  
       // 创建并发送offer
       const offer = await peerConnection.createOffer();
@@ -834,12 +836,12 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at:Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10026"], ["call", "offer"]],
+        tags: [["t", "room10027"], ["call", "offer"]],
         content: JSON.stringify({
           type: "offer",
           sdp: offer.sdp,
           username: window.name,
-          startTime:startTime,
+          startTime:startTimeMs,
           nonce: Math.random().toString(36).slice(2)   // 加随机数，保证内容唯一
         })
       };
@@ -857,7 +859,7 @@ window.send=async function send(eventobj=null) {
       // 显示通话界面
       showCallOverlay(isIncoming);
       // 启动计时器（主叫方计时可以从当前时间开始）
-      startCallTimer(startTime);
+      startCallTimer(startTimeMs);
       isCalling = true;
     }
   }
@@ -1091,7 +1093,7 @@ function startCallTimer(startTimestamp) {
    if (callTimerInterval) {
       clearInterval(callTimerInterval);
    }
-    callStartTimeMs = Number(startTimestamp) || Date.now();
+    callStartTimeMs = startTimestamp|| Date.now();
   // 清除旧的计时器
   if (callTimerInterval) clearInterval(callTimerInterval);
   callTimerInterval = setInterval(() => {
@@ -1157,7 +1159,7 @@ async function acceptCall(event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10026"], ["call", "answer"]],
+      tags: [["t", "room10027"], ["call", "answer"]],
       content: JSON.stringify({
         type: 'answer',
         sdp: answer.sdp,
@@ -1182,7 +1184,7 @@ async function acceptCall(event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10026"], ["call", "accept-call"]],
+      tags: [["t", "room10027"], ["call", "accept-call"]],
       content: JSON.stringify({
         type: "accept-call",
         to: window.offerSenderPubkey || "",       // 告诉主叫方是对他接听
@@ -1220,7 +1222,7 @@ async function acceptCall(event) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10026"], ["call", "hangup"]],
+        tags: [["t", "room10027"], ["call", "hangup"]],
         content: JSON.stringify({
           type: "hangup"
         })

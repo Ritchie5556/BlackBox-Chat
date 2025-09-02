@@ -540,6 +540,8 @@ window.send=async function send(eventobj=null) {
               
               // 处理来电
               if (callTag[1] === "offer" && !isCalling) {
+                window.offerSenderPubkey = event.pubkey;     // 主叫方 pubkey
+                window.offerStartTime = signal.startTime;    // 主叫方的开始时间(毫秒)
                 window.incomingOffer = new RTCSessionDescription({ type: "offer", sdp: signal.sdp });
                 partnerInfo.username = signal.username || "未知用户";
                 partnerName.textContent = partnerInfo.username;    
@@ -588,9 +590,9 @@ window.send=async function send(eventobj=null) {
                     if (cs) cs.innerText = "通话中...";
                     // 启动计时器（使用对方回传的 startTime，保证同步）
                     if (signal.startTime) {
-                      startCallTimer(signal.startTime);
+                      startCallTimer(signal.startTime || Date.now());
                     } else {
-                      startCallTimer(Date.now()); // 兜底
+                      startCallTimer(Date.now()); 
                     }
                  }
               }
@@ -609,7 +611,7 @@ window.send=async function send(eventobj=null) {
                      if (callStatus) {
                          callStatus.innerText = "通话中...";
                      }
-                      acceptCall(from);
+                      acceptCall(event.pubkey);
                      // 启动计时器（用接收方的 startTime 保持同步）
                      startCallTimer(signal.startTime);
                    }
@@ -821,8 +823,8 @@ window.send=async function send(eventobj=null) {
 
     // 如果是主叫方（发起通话）
     if (!isIncoming) {
-      const startTime = Date.now();  // 统一通话开始时间
-      startCallTimer(startTime);      // 自己启动计时器
+      startTime = Date.now();  // 统一通话开始时间
+      startCallTimer(startTime);  
       // 创建并发送offer
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
@@ -855,7 +857,7 @@ window.send=async function send(eventobj=null) {
       // 显示通话界面
       showCallOverlay(isIncoming);
       // 启动计时器（主叫方计时可以从当前时间开始）
-      startCallTimer(Date.now());
+      startCallTimer(startTime);
       isCalling = true;
     }
   }
@@ -1081,7 +1083,7 @@ function showCallOverlay(isIncoming) {
 }
    // 全局变量用于存储计时器
 let callTimerInterval;
-let callStartTime = null; 
+let callStartTimeMs = null; 
 // 启动通话计时器
 function startCallTimer(startTimestamp) {
    const callStatus = document.getElementById('callStatus');
@@ -1089,19 +1091,18 @@ function startCallTimer(startTimestamp) {
    if (callTimerInterval) {
       clearInterval(callTimerInterval);
    }
-    callStartTime = new Date(startTimestamp);
+    callStartTimeMs = Number(startTimestamp) || Date.now();
   // 清除旧的计时器
   if (callTimerInterval) clearInterval(callTimerInterval);
   callTimerInterval = setInterval(() => {
     const now = Date.now();
-    const elapsed = now - startTime;
+    const elapsed = now - startTimeMs;
     const seconds = Math.floor(elapsed / 1000) % 60;
     const minutes = Math.floor(elapsed / (1000 * 60));
     const cs = document.getElementById('callStatus');
     if (cs) cs.innerText = `通话中 ${minutes}:${seconds.toString().padStart(2,'0')}`;
   }, 1000);
 }
-startCallTimer(startTime); 
 // 停止通话计时器
 function stopCallTimer() {
   if (callTimerInterval) {
@@ -1113,9 +1114,9 @@ function stopCallTimer() {
   if (timerElement) {
     timerElement.innerText = '00:00:00';
   }
-  callStartTime = null;
+  callStartTimeMs = null;
 }
-async function acceptCall(from,event) {
+async function acceptCall(event) {
   try {
     if (!peerConnection) {
       await initPeerConnection();
@@ -1169,7 +1170,7 @@ async function acceptCall(from,event) {
     const serialized = JSON.stringify(payload);
     const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(serialized)));
     answerEvent.id = toHex(hash);
-    const sig = await schnorr.sign(new TextEncoder().encode(hash), window.myPrivKey);
+    const sig = await schnorr.sign(hash, window.myPrivKey);
     answerEvent.sig = toHex(sig);
 
     // 发送应答事件
@@ -1184,8 +1185,8 @@ async function acceptCall(from,event) {
       tags: [["t", "room10024"], ["call", "accept-call"]],
       content: JSON.stringify({
         type: "accept-call",
-        to: from,       // 告诉主叫方是对他接听
-        startTime: window.incomingOffer.startTime      // 保证双方计时同步
+        to: window.offerSenderPubkey || "",       // 告诉主叫方是对他接听
+        startTime: window.offerStartTime || Date.now()      // 保证双方计时同步
       })
     };
     socket.send(JSON.stringify(["EVENT", acceptCallEvent]));
@@ -1194,13 +1195,15 @@ async function acceptCall(from,event) {
     enterCall(); // 先进入 UI
     const cs = document.getElementById('callStatus');
     if (cs) cs.innerText = "通话中...";
+    const timerEl = document.getElementById('callTimer');
+    if (timerEl) timerEl.innerText = `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
     const offerData = JSON.parse(event.content); // 解析信令内容
     // 使用发起者传来的 startTime，如果没有就用当前时间（兜底）
     const callStartTimeFromCaller = offerData.startTime ? new Date(offerData.startTime) : new Date();
     const callStartTime = window.incomingOffer.startTime
     ? window.incomingOffer.startTime * 1000 // 秒 -> 毫秒
-    : Date.now();
-     startCallTimer(callStartTime);
+    : window.offerStartTime ||Date.now();
+     startCallTimer(window.offerStartTime || Date.now());
   } catch (err) {
     console.error("接听失败:", err);
   }

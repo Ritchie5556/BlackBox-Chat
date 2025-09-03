@@ -308,7 +308,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10027"]],
+        tags: [["t", "room10028"]],
         content: msg,
         
       };
@@ -356,7 +356,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10027"], ["status", "JOIN"]],
+      tags: [["t", "room10028"], ["status", "JOIN"]],
       content: window.name + " 加入了聊天室"
     });
   }
@@ -374,7 +374,7 @@ window.send=async function send(eventobj=null) {
           socket.send(JSON.stringify({
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10027"], ["call", "answer"]],
+            tags: [["t", "room10028"], ["call", "answer"]],
             content: JSON.stringify({
               type: "answer",
               answer: answer,
@@ -473,7 +473,7 @@ window.send=async function send(eventobj=null) {
           "sub1",
           { 
             kinds:[1],
-            "#t": ["room10027"] 
+            "#t": ["room10028"] 
           }
         ]
       )
@@ -484,7 +484,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10027"]],
+      tags: [["t", "room10028"]],
       content: `${window.name} 加入了聊天室`
     };
     
@@ -563,6 +563,10 @@ window.send=async function send(eventobj=null) {
                       sdp: signal.sdp
                     })
                   );
+                    // 停止主叫方的铃声
+                     stopRingtone();
+                  // 显示通话界面
+                   showCallOverlay(true);
                 } else if (callTag[1] === "ice") {
                   if (peerConnection.remoteDescription) {
                     console.log("添加ICE候选");
@@ -736,7 +740,7 @@ window.send=async function send(eventobj=null) {
             pubkey: window.myPubKey,
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10027"], ["call", "ice"]],
+            tags: [["t", "room10028"], ["call", "ice"]],
             content: JSON.stringify({ 
               type: "ice", 
               candidate: event.candidate 
@@ -836,9 +840,9 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at:Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10027"], ["call", "offer"]],
+        tags: [["t", "room10028"], ["call", "offer"]],
         content: JSON.stringify({
-          type: "offer",
+          type: offer.type,
           sdp: offer.sdp,
           username: window.name,
           startTime:startTimeMs,
@@ -1098,7 +1102,7 @@ function startCallTimer(startTimestamp) {
   if (callTimerInterval) clearInterval(callTimerInterval);
   callTimerInterval = setInterval(() => {
     const now = Date.now();
-    const elapsed = now - startTimeMs;
+    const elapsed = now - callStartTimeMs;
     const seconds = Math.floor(elapsed / 1000) % 60;
     const minutes = Math.floor(elapsed / (1000 * 60));
     const cs = document.getElementById('callStatus');
@@ -1155,15 +1159,17 @@ async function acceptCall(event) {
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     // ========= 发送 Answer 给主叫 =========
+    const offerData = JSON.parse(event.content); // 解析信令内容
     const answerEvent = {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10027"], ["call", "answer"]],
+      tags: [["t", "room10028"], ["call", "answer"]],
       content: JSON.stringify({
-        type: 'answer',
+        type: answer.type,
         sdp: answer.sdp,
-        username: window.name
+        username: window.name,
+        startTime: offerData.startTime 
       })
     };
 
@@ -1184,7 +1190,7 @@ async function acceptCall(event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10027"], ["call", "accept-call"]],
+      tags: [["t", "room10028"], ["call", "accept-call"]],
       content: JSON.stringify({
         type: "accept-call",
         to: window.offerSenderPubkey || "",       // 告诉主叫方是对他接听
@@ -1198,8 +1204,6 @@ async function acceptCall(event) {
     const cs = document.getElementById('callStatus');
     if (cs) cs.innerText = "通话中...";
     const timerEl = document.getElementById('callTimer');
-    if (timerEl) timerEl.innerText = `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
-    const offerData = JSON.parse(event.content); // 解析信令内容
     // 使用发起者传来的 startTime，如果没有就用当前时间（兜底）
     const callStartTimeFromCaller = offerData.startTime ? new Date(offerData.startTime) : new Date();
     const callStartTime = window.incomingOffer.startTime
@@ -1222,7 +1226,7 @@ async function acceptCall(event) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10027"], ["call", "hangup"]],
+        tags: [["t", "room10028"], ["call", "hangup"]],
         content: JSON.stringify({
           type: "hangup"
         })

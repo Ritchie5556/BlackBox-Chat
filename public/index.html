@@ -516,35 +516,6 @@ window.send=async function send(eventobj=null) {
     send(joinEvent);
   };
   
-  socket.onmessage = async (e) => {
-    try {
-      const data = JSON.parse(e.data);
-      console.log("收到:", e.data);
-      
-      // 1. 处理数组格式的消息 (Nostr协议标准格式)
-      if (Array.isArray(data)) {
-        if (data[0] === "OK") {
-          console.log("Relay确认:", data);
-          return;
-        }
-        
-        if (data[0] === "EOSE") {
-          console.log("EOSE 收到:", data[1]);
-          return;
-        }
-        
-        if (data[0] === "EVENT") {
-          const event = data[2];
-          if (!event || !event.pubkey) return;
-          
-          // 更新用户映射
-          if (!mysMap[event.pubkey]) {
-            mysMap[event.pubkey] = event.username || "未知用户"; 
-          }
-          
-          console.log("当前在线用户:", Object.values(mysMap));
-          
-          // 检查是否是通话相关事件
 socket.onmessage = async (e) => {
   try {
     const data = JSON.parse(e.data);
@@ -722,6 +693,7 @@ socket.onmessage = async (e) => {
     log("解析失败: " + e.data, "system");
   }
 };
+
   socket.onerror = () => log("❌ 连接出错", "system");
 
   function log(message, type="other"){

@@ -545,146 +545,183 @@ window.send=async function send(eventobj=null) {
           console.log("当前在线用户:", Object.values(mysMap));
           
           // 检查是否是通话相关事件
-          const callTag = event.tags?.find(t => t[0] === "call");
-          if (callTag) {
-            try {
-              const signal = JSON.parse(event.content);
-              // 只处理来自对方的消息（排除自己发送的消息）
-              if (event.pubkey === window.myPubKey) {
-                console.log("忽略自己发送的信令消息");
-                return;
-              }
-              
-              // 处理来电
-              if (callTag[1] === "offer" && !isCalling) {
-                window.offerSenderPubkey = event.pubkey;     // 主叫方 pubkey
-                window.offerStartTime = signal.startTime;    // 主叫方的开始时间(毫秒)
-                window.incomingOffer = new RTCSessionDescription({ type: "offer", sdp: signal.sdp });
-                partnerInfo.username = signal.username || "未知用户";
-                partnerName.textContent = partnerInfo.username;    
-                // 显示来电界面
-                showCallOverlay(true); // 显示被叫界面
-                alert(`${partnerInfo.username} 发起了语音通话`);
-                return;
-              }
-              
-              // 处理其他信令（answer、ice等）
-              if (peerConnection) {
-                console.log("处理信令:", callTag[1], "当前状态:", peerConnection.signalingState);
-                
-                if (callTag[1] === "answer") {
-                  console.log("设置远程answer");
-                  await peerConnection.setRemoteDescription(
-                    new RTCSessionDescription({
-                      type: "answer",
-                      sdp: signal.sdp
-                    })
+socket.onmessage = async (e) => {
+  try {
+    const data = JSON.parse(e.data);
+    console.log("收到:", e.data);
+
+    // 1. 处理数组格式的消息 (Nostr协议标准格式)
+    if (Array.isArray(data)) {
+      if (data[0] === "OK") {
+        console.log("Relay确认:", data);
+        return;
+      }
+
+      if (data[0] === "EOSE") {
+        console.log("EOSE 收到:", data[1]);
+        return;
+      }
+
+      if (data[0] === "EVENT") {
+        const event = data[2];
+        if (!event || !event.pubkey) return;
+
+        // 更新用户映射
+        if (!mysMap[event.pubkey]) {
+          mysMap[event.pubkey] = event.username || "未知用户";
+        }
+
+        console.log("当前在线用户:", Object.values(mysMap));
+
+        // 检查是否是通话相关事件
+        const callTag = event.tags?.find((t) => t[0] === "call");
+        if (callTag) {
+          try {
+            const signal = JSON.parse(event.content);
+            // 只处理来自对方的消息（排除自己发送的消息）
+            if (event.pubkey === window.myPubKey) {
+              console.log("忽略自己发送的信令消息");
+              return;
+            }
+
+            // 处理来电
+            if (callTag[1] === "offer" && !isCalling) {
+              window.offerSenderPubkey = event.pubkey; // 主叫方 pubkey
+              window.offerStartTime = signal.startTime; // 主叫方的开始时间(毫秒)
+              window.incomingOffer = new RTCSessionDescription({
+                type: "offer",
+                sdp: signal.sdp,
+              });
+              partnerInfo.username = signal.username || "未知用户";
+              partnerName.textContent = partnerInfo.username;
+              // 显示来电界面
+              showCallOverlay(true); // 显示被叫界面
+              alert(`${partnerInfo.username} 发起了语音通话`);
+              return;
+            }
+
+            // 处理其他信令（answer、ice等）
+            if (peerConnection) {
+              console.log(
+                "处理信令:",
+                callTag[1],
+                "当前状态:",
+                peerConnection.signalingState
+              );
+
+              if (callTag[1] === "answer") {
+                console.log("设置远程answer");
+                await peerConnection.setRemoteDescription(
+                  new RTCSessionDescription({
+                    type: "answer",
+                    sdp: signal.sdp,
+                  })
+                );
+                // 停止主叫方的铃声
+                stopRingtone();
+                // 显示通话界面
+                showCallOverlay(true);
+                const cs = document.getElementById("callStatus");
+                if (cs) cs.innerText = "通话中...";
+                // 启动计时器（用对方传来的 startTime，同步）
+                startCallTimer(signal.startTime || Date.now());
+              } else if (callTag[1] === "ice") {
+                if (peerConnection.remoteDescription) {
+                  console.log("添加ICE候选");
+                  await peerConnection.addIceCandidate(
+                    new RTCIceCandidate(signal.candidate)
                   );
-                    // 停止主叫方的铃声
-                     stopRingtone();
-                  // 显示通话界面
-                  showCallOverlay(true);
+                } else {
+                  console.log("缓存ICE候选，等待远程描述");
+                  // 可以缓存ICE候选，等到有远程描述后再添加
+                }
+              } else if (callTag[1] === "accept-call") {
+                console.log("收到接听信令");
+                const signal = JSON.parse(event.content);
+                // 只处理发给我的 accept-call
+                if (signal.to === window.myPubKey) {
+                  stopRingtone();
                   const cs = document.getElementById("callStatus");
                   if (cs) cs.innerText = "通话中...";
-                  // 启动计时器（用对方传来的 startTime，同步）
-                   startCallTimer(signal.startTime || Date.now());
-                } else if (callTag[1] === "ice") {
-                  if (peerConnection.remoteDescription) {
-                    console.log("添加ICE候选");
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-                  } else {
-                    console.log("缓存ICE候选，等待远程描述");
-                    // 可以缓存ICE候选，等到有远程描述后再添加
-                  }
-                } else if (callTag[1] === "accept-call") {
-                   console.log("收到接听信令");
-                   const signal = JSON.parse(event.content);
-                  // 只处理发给我的 accept-call
-                  if (signal.to === window.myPubKey) {
-                      stopRingtone();
-                      const cs = document.getElementById('callStatus');
-                      if (cs) cs.innerText = "通话中...";
-                         startCallTimer(signal.startTime || Date.now());
-                    }
-                 }else if (callTag[1] === "hangup") {
-                  console.log("收到挂断信令");
-                    stopRingtone();
-                    stopCallTimer();
-                    endCall(false);
+                  startCallTimer(signal.startTime || Date.now());
                 }
+              } else if (callTag[1] === "hangup") {
+                console.log("收到挂断信令");
+                stopRingtone();
+                stopCallTimer();
+                endCall(false);
               }
-                      // === 移除接听按钮，只保留挂断 ===
-                     const btnContainer = document.querySelector('#callOverlay div');
-                     if (btnContainer) {
-                         btnContainer.innerHTML = '';
-                          const hangupBtn = document.createElement('button');
-                          hangupBtn.id = 'hangupBtn';
-                          hangupBtn.innerText = '挂断';
-                          hangupBtn.onclick = () => endCall(true);
-                          btnContainer.appendChild(hangupBtn);
-                      }
-                    // 更新 UI
-                     const callStatus = document.getElementById('callStatus');
-                     if (callStatus) {
-                         callStatus.innerText = "通话中...";
-                     }
-                      acceptCall(event.pubkey);
-                     // 启动计时器（用接收方的 startTime 保持同步）
-                     startCallTimer(signal.startTime);
-                   }
             }
-            return;
+
+            // === 移除接听按钮，只保留挂断 ===
+            const btnContainer = document.querySelector("#callOverlay div");
+            if (btnContainer) {
+              btnContainer.innerHTML = "";
+              const hangupBtn = document.createElement("button");
+              hangupBtn.id = "hangupBtn";
+              hangupBtn.innerText = "挂断";
+              hangupBtn.onclick = () => endCall(true);
+              btnContainer.appendChild(hangupBtn);
+            }
+            // 更新 UI
+            const callStatus = document.getElementById("callStatus");
+            if (callStatus) {
+              callStatus.innerText = "通话中...";
+            }
+            acceptCall(event.pubkey);
+            // 启动计时器（用接收方的 startTime 保持同步）
+            startCallTimer(signal.startTime);
+          } catch (err) {
+            console.error("解析通话信令失败", err);
           }
-          
-          // 处理普通事件
-          handleEvent(event);
-          return;
-        }
-      }catch (err) {
-          console.error("解析通话信令失败", err);
-      }
-      
-      // 2. 处理非标准格式的消息（系统消息和旧版信令）
-      if (data.system) {
-        log(data.msg, "system");
-        return;
-      }
-      
-      // 处理旧版信令格式（应该逐步迁移到使用Nostr事件的标准格式）
-      if (data.type === 'offer' && !isCalling) {
-        window.incomingOffer = data.offer;
-        partnerInfo.username = data.username;
-        partnerName.textContent = partnerInfo.username;
-        partnerAvatar.src = data.avatar || partnerAvatar.src;
-        startCall(true);
-        return;
-      }
-
-      if (data.type === 'answer') {
-        if (peerConnection) {
-          await peerConnection.setRemoteDescription(
-            new RTCSessionDescription(
-              data.answer
-            )
-          );
-        }
-        return;
-      } else if (data.type === 'ice' && data.candidate) {
-        if (peerConnection) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-        }
-      }
-        if (data.type) {
-          await handleSignal(data);
           return;
         }
 
-     }
-      catch (err) {
-      console.error("解析失败", e.data, err);
-      log("解析失败: " + e.data, "system");
+        // 处理普通事件
+        handleEvent(event);
+        return;
+      }
     }
+
+    // 2. 处理非标准格式的消息（系统消息和旧版信令）
+    if (data.system) {
+      log(data.msg, "system");
+      return;
+    }
+
+    // 处理旧版信令格式（应该逐步迁移到使用Nostr事件的标准格式）
+    if (data.type === "offer" && !isCalling) {
+      window.incomingOffer = data.offer;
+      partnerInfo.username = data.username;
+      partnerName.textContent = partnerInfo.username;
+      partnerAvatar.src = data.avatar || partnerAvatar.src;
+      startCall(true);
+      return;
+    }
+
+    if (data.type === "answer") {
+      if (peerConnection) {
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(data.answer)
+        );
+      }
+      return;
+    } else if (data.type === "ice" && data.candidate) {
+      if (peerConnection) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+      return;
+    }
+
+    if (data.type) {
+      await handleSignal(data);
+      return;
+    }
+  } catch (err) {
+    console.error("解析失败", e.data, err);
+    log("解析失败: " + e.data, "system");
   }
+};
   socket.onerror = () => log("❌ 连接出错", "system");
 
   function log(message, type="other"){

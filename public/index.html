@@ -308,7 +308,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10030"]],
+        tags: [["t", "room10031"]],
         content: msg,
         
       };
@@ -356,7 +356,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10030"], ["status", "JOIN"]],
+      tags: [["t", "room10031"], ["status", "JOIN"]],
       content: window.name + " 加入了聊天室"
     });
   }
@@ -374,7 +374,7 @@ window.send=async function send(eventobj=null) {
           socket.send(JSON.stringify({
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10030"], ["call", "answer"]],
+            tags: [["t", "room10031"], ["call", "answer"]],
             content: JSON.stringify({
               type: "answer",
               answer: answer,
@@ -473,7 +473,7 @@ window.send=async function send(eventobj=null) {
           "sub1",
           { 
             kinds:[1],
-            "#t": ["room10030"] 
+            "#t": ["room10031"] 
           }
         ]
       )
@@ -484,7 +484,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10030"]],
+      tags: [["t", "room10031"]],
       content: `${window.name} 加入了聊天室`
     };
     
@@ -689,15 +689,22 @@ window.send=async function send(eventobj=null) {
   const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   let ringtone = new Audio('sound/DaDaDum - The Soundlings.mp3'); // 你的铃声文件
    ringtone.loop = true;
-  
-   function startRingtone() {
-     ringtone.play();
-   }
+  let ringtonePlaying = false;  // 新增标记
 
-    function stopRingtone() {
-      ringtone.pause();
-      ringtone.currentTime = 0;
-   }
+  function startRingtone() {
+    if (!ringtonePlaying) {
+        ringtone.play();
+        ringtonePlaying = true;
+    }
+  }
+
+  function stopRingtone() {
+     if (ringtonePlaying) {
+        ringtone.pause();
+        ringtone.currentTime = 0;
+        ringtonePlaying = false;
+     }
+  }
   async function initPeerConnection() {
     try {
       // 如果已存在PeerConnection，先关闭它
@@ -755,7 +762,7 @@ window.send=async function send(eventobj=null) {
             pubkey: window.myPubKey,
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10030"], ["call", "ice"]],
+            tags: [["t", "room10031"], ["call", "ice"]],
             content: JSON.stringify({ 
               type: "ice", 
               candidate: event.candidate 
@@ -853,7 +860,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at:Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10030"], ["call", "offer"]],
+        tags: [["t", "room10031"], ["call", "offer"]],
         content: JSON.stringify({
           type: offer.type,
           sdp: offer.sdp,
@@ -1176,7 +1183,7 @@ async function acceptCall(event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10030"], ["call", "answer"]],
+      tags: [["t", "room10031"], ["call", "answer"]],
       content: JSON.stringify({
         type: answer.type,
         sdp: answer.sdp,
@@ -1202,7 +1209,7 @@ async function acceptCall(event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10030"], ["call", "accept-call"]],
+      tags: [["t", "room10031"], ["call", "accept-call"]],
       content: JSON.stringify({
         type: "accept-call",
         to: window.offerSenderPubkey || "",       // 告诉主叫方是对他接听
@@ -1238,7 +1245,7 @@ async function acceptCall(event) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10030"], ["call", "hangup"]],
+        tags: [["t", "room10031"], ["call", "hangup"]],
         content: JSON.stringify({
           type: "hangup"
         })

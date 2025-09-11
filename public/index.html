@@ -308,7 +308,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10031"]],
+        tags: [["t", "room10032"]],
         content: msg,
         
       };
@@ -356,7 +356,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10031"], ["status", "JOIN"]],
+      tags: [["t", "room10032"], ["status", "JOIN"]],
       content: window.name + " 加入了聊天室"
     });
   }
@@ -374,7 +374,7 @@ window.send=async function send(eventobj=null) {
           socket.send(JSON.stringify({
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10031"], ["call", "answer"]],
+            tags: [["t", "room10032"], ["call", "answer"]],
             content: JSON.stringify({
               type: "answer",
               answer: answer,
@@ -473,7 +473,7 @@ window.send=async function send(eventobj=null) {
           "sub1",
           { 
             kinds:[1],
-            "#t": ["room10031"] 
+            "#t": ["room10032"] 
           }
         ]
       )
@@ -484,7 +484,7 @@ window.send=async function send(eventobj=null) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10031"]],
+      tags: [["t", "room10032"]],
       content: `${window.name} 加入了聊天室`
     };
     
@@ -713,12 +713,14 @@ window.send=async function send(eventobj=null) {
       }
       
       peerConnection = new RTCPeerConnection(config);
-      
+      startRingtone();
       // 添加状态监听
       peerConnection.onconnectionstatechange = () => {
-        console.log("连接状态变化:", peerConnection.connectionState);
+        if(peerConnection.connectionState === "connected") {
+           stopRingtone(); // 停铃
+           startCallTimer(); // 开始计时
+        }
       };
-      
       peerConnection.onsignalingstatechange = () => {
         console.log("信令状态变化:", peerConnection.signalingState);
       };
@@ -762,7 +764,7 @@ window.send=async function send(eventobj=null) {
             pubkey: window.myPubKey,
             created_at: Math.floor(Date.now() / 1000),
             kind: 1,
-            tags: [["t", "room10031"], ["call", "ice"]],
+            tags: [["t", "room10032"], ["call", "ice"]],
             content: JSON.stringify({ 
               type: "ice", 
               candidate: event.candidate 
@@ -860,7 +862,7 @@ window.send=async function send(eventobj=null) {
         pubkey: window.myPubKey,
         created_at:Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10031"], ["call", "offer"]],
+        tags: [["t", "room10032"], ["call", "offer"]],
         content: JSON.stringify({
           type: offer.type,
           sdp: offer.sdp,
@@ -1183,7 +1185,7 @@ async function acceptCall(event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10031"], ["call", "answer"]],
+      tags: [["t", "room10032"], ["call", "answer"]],
       content: JSON.stringify({
         type: answer.type,
         sdp: answer.sdp,
@@ -1209,7 +1211,7 @@ async function acceptCall(event) {
       pubkey: window.myPubKey,
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
-      tags: [["t", "room10031"], ["call", "accept-call"]],
+      tags: [["t", "room10032"], ["call", "accept-call"]],
       content: JSON.stringify({
         type: "accept-call",
         to: window.offerSenderPubkey || "",       // 告诉主叫方是对他接听
@@ -1245,7 +1247,7 @@ async function acceptCall(event) {
         pubkey: window.myPubKey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 1,
-        tags: [["t", "room10031"], ["call", "hangup"]],
+        tags: [["t", "room10032"], ["call", "hangup"]],
         content: JSON.stringify({
           type: "hangup"
         })

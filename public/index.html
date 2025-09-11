@@ -285,7 +285,24 @@ window.startCall = startCall;
     msgInput.value += symbol;
     msgInput.focus();
   }
-  
+   let ringtone = new Audio('sound/DaDaDum - The Soundlings.mp3'); // 你的铃声文件
+   ringtone.loop = true;
+  let ringtonePlaying = false;  // 新增标记
+
+  function startRingtone() {
+    if (!ringtonePlaying) {
+        ringtone.play();
+        ringtonePlaying = true;
+    }
+  }
+
+  function stopRingtone() {
+     if (ringtonePlaying) {
+        ringtone.pause();
+        ringtone.currentTime = 0;
+        ringtonePlaying = false;
+     }
+  } 
 window.send=async function send(eventobj=null) {
   if (eventobj) {
     if (socket.readyState === WebSocket.OPEN) {
@@ -566,7 +583,11 @@ window.send=async function send(eventobj=null) {
                     // 停止主叫方的铃声
                      stopRingtone();
                   // 显示通话界面
-                   showCallOverlay(true);
+                  showCallOverlay(true);
+                  const cs = document.getElementById("callStatus");
+                  if (cs) cs.innerText = "通话中...";
+                  // 启动计时器（用对方传来的 startTime，同步）
+                   startCallTimer(signal.startTime || Date.now());
                 } else if (callTag[1] === "ice") {
                   if (peerConnection.remoteDescription) {
                     console.log("添加ICE候选");
@@ -575,30 +596,22 @@ window.send=async function send(eventobj=null) {
                     console.log("缓存ICE候选，等待远程描述");
                     // 可以缓存ICE候选，等到有远程描述后再添加
                   }
-                } else if (callTag[1] === "hangup") {
-                  console.log("收到挂断信令");
-                  endCall(false);
-                }else if (callTag[1] === "accept-call") {
+                } else if (callTag[1] === "accept-call") {
                    console.log("收到接听信令");
                    const signal = JSON.parse(event.content);
                   // 只处理发给我的 accept-call
                   if (signal.to === window.myPubKey) {
-                      // 停止响铃
-                      const audio = document.querySelector('#callOverlay audio');
-                      if (audio) {
-                          audio.pause();
-                          audio.currentTime = 0;
-                      }
-                      // 更新 UI
-                     const cs = document.getElementById('callStatus');
-                    if (cs) cs.innerText = "通话中...";
-                    // 启动计时器（使用对方回传的 startTime，保证同步）
-                    if (signal.startTime) {
-                      startCallTimer(signal.startTime || Date.now());
-                    } else {
-                      startCallTimer(Date.now()); 
+                      stopRingtone();
+                      const cs = document.getElementById('callStatus');
+                      if (cs) cs.innerText = "通话中...";
+                         startCallTimer(signal.startTime || Date.now());
                     }
-                 }
+                 }else if (callTag[1] === "hangup") {
+                  console.log("收到挂断信令");
+                    stopRingtone();
+                    stopCallTimer();
+                    endCall(false);
+                }
               }
                       // === 移除接听按钮，只保留挂断 ===
                      const btnContainer = document.querySelector('#callOverlay div');
@@ -687,24 +700,6 @@ window.send=async function send(eventobj=null) {
   // -------------------- WebRTC语音通话 --------------------
   let localStream, peerConnection, isCalling = false;
   const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-  let ringtone = new Audio('sound/DaDaDum - The Soundlings.mp3'); // 你的铃声文件
-   ringtone.loop = true;
-  let ringtonePlaying = false;  // 新增标记
-
-  function startRingtone() {
-    if (!ringtonePlaying) {
-        ringtone.play();
-        ringtonePlaying = true;
-    }
-  }
-
-  function stopRingtone() {
-     if (ringtonePlaying) {
-        ringtone.pause();
-        ringtone.currentTime = 0;
-        ringtonePlaying = false;
-     }
-  }
   async function initPeerConnection() {
     try {
       // 如果已存在PeerConnection，先关闭它
